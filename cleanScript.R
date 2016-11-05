@@ -1,4 +1,3 @@
-setwd('C:/Users/OM NAMAH SHIVAY/Desktop/Study/Foundation of Data Science/Project')
 
 largeData <- read.csv("C:/Users/OM NAMAH SHIVAY/Desktop/Study/Foundation of Data Science/Project/data/yelp_academic_dataset_review.csv",
 header = TRUE,
