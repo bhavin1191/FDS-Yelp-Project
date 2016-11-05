@@ -13,16 +13,7 @@ write.csv(x = reviews_1415,file = "reviews_1415.csv")
 
 ## Business Data
 
-#BusinessData <- read.csv("C:/Users/OM NAMAH SHIVAY/Desktop/Study/Foundation of Data Science/Project/data/yelp_academic_dataset_business.csv",
-#header = TRUE,
-#colClasses = c("NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL"
-#               ,"character","NULL","NULL","NULL","NULL","character","NULL","NULL","character","NULL","NULL","NULL","NULL","NULL"
-#               ,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","numeric","NULL","character"
-#               ,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL"
-#               ,"character")
-#)
 
-## *()()()()
 
 library(rjson)
 
