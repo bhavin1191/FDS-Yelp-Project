@@ -69,10 +69,12 @@ NFLSchedule_1316$Date1  <- as.Date(NFLSchedule_1316$Date1, "%B%d%Y")
 NFLSchedule_1316 <- NFLSchedule_1316[-3]
 names(NFLSchedule_1316)[names(NFLSchedule_1316)=="Date1"] <- "Date"
 NFLSchedule_1316 <- NFLSchedule_1316[-6]
-NFLSchedule_1316$Week = as.numeric(NFLSchedule_1316$Week)
-NFLSchedule_1316$Day = as.character(NFLSchedule_1316$Day)
-NFLSchedule_1316$Time = as.character(NFLSchedule_1316$Time)
-NFLSchedule_1316$`Winner/tie` = as.character(NFLSchedule_1316$`Winner/tie`)
-NFLSchedule_1316$`Loser/tie` = as.character(NFLSchedule_1316$`Loser/tie`)
+
+
+#NFLSchedule_1316$Week = as.numeric(NFLSchedule_1316$Week)
+#NFLSchedule_1316$Day = as.character(NFLSchedule_1316$Day)
+#NFLSchedule_1316$Time = as.character(NFLSchedule_1316$Time)
+#NFLSchedule_1316$`Winner/tie` = as.character(NFLSchedule_1316$`Winner/tie`)
+#NFLSchedule_1316$`Loser/tie` = as.character(NFLSchedule_1316$`Loser/tie`)
 
 write.csv(x = NFLSchedule_1316,file = "NFLSchedule_1316.csv")
