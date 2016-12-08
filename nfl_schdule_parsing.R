@@ -25,4 +25,6 @@ scheduled_dates_for_review <- rbind(unq_measure_week,nextdates)
 
 scheduled_dates_for_review$Day <- weekdays(as.Date(scheduled_dates_for_review$Date))
 
+scheduled_dates_for_review = unique(scheduled_dates_for_review)
+
 write.csv(x = scheduled_dates_for_review,file = "nfl_scheduled_dates_for_review.csv")
