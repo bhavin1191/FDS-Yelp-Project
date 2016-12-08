@@ -1,0 +1,274 @@
+---
+title: "Project"
+author: "Bhavin Mehta"
+date: "December 7, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+
+
+```{r}
+library(rjson)
+library(dplyr)
+library(XML)
+library(htmltools)
+library(ggplot2)
+library(sqldf)
+library(lubridate)
+```
+
+#Review Source
+
+Cleaning Review
+```{r}
+setwd("D:/Fall 2016/Data_Science/Project Data Set/yelp_json_csv_converter")
+
+###review data cleaning
+###colclasses helps us to read specific columns
+largeData <- read.csv("yelp_academic_dataset_review.csv",header = TRUE, colClasses = c("character", "character", "NULL","NULL","character","NULL","numeric","Date","NULL","NULL"))
+#write.csv(x = largeData,file = "reviews_clean1.csv")
+
+###fetching sample data for 12-16
+reviews_1216 = largeData[largeData$date >= "2012-09-01", ]
+summary(reviews_1216)
+# write.csv(x = reviews_1216,file = "reviews_1216.csv")
+```
+
+
+#Business
+```{r}
+### Business Data Set Cleaninig
+current_dir = getwd()
+setwd("D:/Fall 2016/Data_Science/Project Data Set/yelp_json_csv_converter")
+filename = "yelp_academic_dataset_business.json"
+con = file(filename, "r")
+input <- readLines(con, -1L)
+test <- lapply(input, fromJSON)
+test <- lapply(test, cbind)
+test <- as.data.frame(test)
+test <- as.data.frame(t(test))
+row.names(test) <- seq(1, nrow(test))
+business_clean <- test[c(1,5,6,7,8,11,12)]
+
+business_clean$categories <- as.character(business_clean$categories)
+business_clean$review_count <- as.numeric(business_clean$review_count)
+business_clean$business_id <- as.character(business_clean$business_id)
+business_clean$stars <- as.numeric(business_clean$stars)
+business_clean$city = as.character(business_clean$city)
+business_clean$state = as.character(business_clean$state)
+business_clean$name = as.character(business_clean$name)
+# write.csv(x = business_clean,file = "business.csv")
+
+#filtering business records for sports bars
+bar_business <- filter(business_clean,grepl("Bars",x = categories))
+sports_bar_business <- filter(bar_business,grepl("Sports Bars",x = categories))
+summary(sports_bar_business)
+setwd(current_dir)
+```
+
+
+#NFL Schedule
+```{r}
+setwd('D:/Fall 2016/Data_Science/Project Data Set/raw_data')
+
+#2012 Schedule
+htmldoc <- htmlParse("http://static.pfref.com/years/2012/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
+#htmldoc
+#reading the table contents from the html document using the readHTMLTable
+NFLSchedule2012 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
+NFLSchedule2012 <- NFLSchedule2013[-c(17,34,51,67,82,98,114,128,142,157,173,188,205,222,239,256,273),]
+
+NFLSchedule2012_clean <- NFLSchedule2013[,c(1,2,3,4,5,7)]
+NFLSchedule2012_clean['Year'] = 2012
+#write.csv(x = NFLSchedule2012_clean,file = "NFLSchedule2012_clean.csv")
+
+#2013
+htmldoc <- htmlParse("http://static.pfref.com/years/2013/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
+#htmldoc
+#reading the table contents from the html document using the readHTMLTable
+NFLSchedule2013 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
+NFLSchedule2013 <- NFLSchedule2013[-c(17,34,51,67,82,98,114,128,142,157,173,188,205,222,239,256,273),]
+NFLSchedule2013_clean <- NFLSchedule2013[,c(1,2,3,4,5,7)]
+NFLSchedule2013_clean['Year'] = 2013
+write.csv(x = NFLSchedule2013_clean,file = "NFLSchedule2013_clean.csv")
+
+#2014 Schedule
+htmldoc <- htmlParse("http://static.pfref.com/years/2014/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
+#htmldoc
+#reading the table contents from the html document using the readHTMLTable
+NFLSchedule2014 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
+NFLSchedule2014 <- NFLSchedule2014[-c(17,34,51,65,81,97,113,129,143,157,172,188,205,222,239,256,273),]
+
+NFLSchedule2014_clean <- NFLSchedule2014[,c(1,2,3,4,5,7)]
+NFLSchedule2014_clean['Year'] = 2014
+write.csv(x = NFLSchedule2014_clean,file = "NFLSchedule2014_clean.csv")
+
+#2015 Schedule
+htmldoc <- htmlParse("http://static.pfref.com/years/2015/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
+#htmldoc
+#reading the table contents from the html document using the readHTMLTable
+NFLSchedule2015 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
+NFLSchedule2015 <- NFLSchedule2015[-c(17,34,51,67,82,97,112,127,141,156,171,188,205,222,239,256,273),]
+
+NFLSchedule2015_clean <- NFLSchedule2015[,c(1,2,3,4,5,7)]
+NFLSchedule2015_clean['Year'] = 2015
+write.csv(x = NFLSchedule2015_clean,file = "NFLSchedule2015_clean.csv")
+
+#2016 schedule
+htmldoc <- htmlParse("http://static.pfref.com/years/2016/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
+#htmldoc
+#reading the table contents from the html document using the readHTMLTable
+NFLSchedule2016 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
+NFLSchedule2016 <- NFLSchedule2016[-c(17,34,51,67,82,98,114,128,142,157,172,189,205,222,239,256),]
+NFLSchedule2016_clean <- NFLSchedule2016[,c(1,2,3,4,5,7)]
+NFLSchedule2016_clean['Year'] = 2016
+#write.csv(x = NFLSchedule2016_clean,file = "NFLSchedule2016_clean.csv")
+
+#combine dataframe into single dataframe
+NFLSchedule_1216 <- rbind(NFLSchedule2012_clean,NFLSchedule2013_clean, NFLSchedule2014_clean, NFLSchedule2015_clean, NFLSchedule2016_clean)
+#convert to date format yyyy-mm-dd
+NFLSchedule_1216$Date1 <- do.call(paste, c(NFLSchedule_1216[c("Date", "Year")], sep = " ")) 
+NFLSchedule_1216$Date1  <- as.Date(NFLSchedule_1216$Date1, "%B%d%Y")
+NFLSchedule_1216 <- NFLSchedule_1216[-3]
+names(NFLSchedule_1216)[names(NFLSchedule_1216)=="Date1"] <- "Date"
+NFLSchedule_1216 <- NFLSchedule_1216[-6]
+sapply(NFLSchedule_1216,class)
+
+NFLSchedule_1216 = NFLSchedule_1216[!NFLSchedule_1216$Day == "Day",]
+
+# NFLSchedule_1216$Week = as.numeric(NFLSchedule_1216$Week)
+NFLSchedule_1216$Day = as.character(NFLSchedule_1216$Day)
+NFLSchedule_1216$Day = as.factor(NFLSchedule_1216$Day)
+NFLSchedule_1216$Time = as.character(NFLSchedule_1216$Time)
+NFLSchedule_1216$`Winner/tie` = as.character(NFLSchedule_1216$`Winner/tie`)
+NFLSchedule_1216$`Loser/tie` = as.character(NFLSchedule_1216$`Loser/tie`)
+sapply(NFLSchedule_1216,class)
+
+NFLSchedule_1216$`Date` = as.Date(NFLSchedule_1216$`Date`)
+# write.csv(x = NFLSchedule_1216,file = "NFLSchedule_1216.csv")
+
+NFLSchedule_1216 = NFLSchedule_1216[NFLSchedule_1216$Date >= "2012-09-01",]
+barplot(summary(NFLSchedule_1216$Day),col = c("red","blue","green","yellow","grey"))
+summary(NFLSchedule_1216)
+```
+
+
+```{r}
+raw_schedule <- NFLSchedule_1216
+# raw_schedule = raw_schedule[-1]
+raw_schedule$Week = as.character(raw_schedule$Week)
+
+raw_schedule$Week = ifelse(raw_schedule$Week == "WildCard",18,raw_schedule$Week)
+raw_schedule$Week = ifelse(raw_schedule$Week == "Division",19,raw_schedule$Week)
+raw_schedule$Week = ifelse(raw_schedule$Week == "ConfChamp",20,raw_schedule$Week)
+raw_schedule$Week = ifelse(raw_schedule$Week == "SuperBowl",21,raw_schedule$Week)
+
+raw_schedule$Week = as.numeric(raw_schedule$Week)
+
+# sapply(raw_schedule,class)
+measure_week = data.frame(raw_schedule$Week,raw_schedule$Date)
+colnames(measure_week) = c("Week","Date")
+
+#find unique values
+unq_measure_week = unique(measure_week)
+
+nextdates = data.frame(unq_measure_week$Week,unq_measure_week$Date + 1)
+colnames(nextdates) = c("Week","Date")
+
+scheduled_dates_for_review <- rbind(unq_measure_week,nextdates)
+
+scheduled_dates_for_review$Day <- weekdays(as.Date(scheduled_dates_for_review$Date))
+
+scheduled_dates_for_review = unique(scheduled_dates_for_review)
+# write.csv(x = scheduled_dates_for_review,file = "nfl_scheduled_dates_for_review.csv")
+```
+
+#SPORTS BAR + REVIEW
+```{r}
+#reading sample review data
+review_bar <- merge(sports_bar_business,reviews_1216, by="business_id")
+# write.csv(x = review_bar,file = "review1316_sports_bar.csv")
+
+# sapply(review_bar,class)
+review_bar$city = trimws(review_bar$city,which = "both")
+review_bar[grep(".*.Las Vegas?",review_bar$city),]$city = "Las Vegas"
+review_bar$city = sapply(review_bar$city,tolower)
+
+#remove non_us_states
+non_usa_states = c("QC","ON","EDH","MLN","HAM","SCB","ELN","FIF","NTH","XGL","BW","RP","KHL","NW","TAM","")
+non_usa_states = as.data.frame(non_usa_states)
+
+sum(review_bar$state %in% non_usa_states$non_usa_states)
+review_bar = review_bar[! review_bar$state %in% non_usa_states$non_usa_states,]
+
+##create a data frame
+review_bar_group <- review_bar
+sapply(review_bar,class)
+review_bar_group["year"] = year(review_bar$date)
+
+review_bar_group_business<- group_by(review_bar_group,business_id,year)
+count_business_review_bar <- summarize(review_bar_group_business,count=n())
+
+count_business_review_bar = count_business_review_bar[-3]
+count_business_review_bar =  unique(count_business_review_bar)
+
+count_business_review_bar<- group_by(count_business_review_bar,business_id)
+count_business_review_bar_year1 <- summarize(count_business_review_bar,count=n())
+count_business_review_bar_year1 = count_business_review_bar_year1[count_business_review_bar_year1$count == 5,]
+
+review_bar_merge = merge(y=review_bar,x=count_business_review_bar_year1,by = "business_id")
+
+review_bar = review_bar_merge[-2]
+
+city_n_bar = review_bar[,c(1,2,4)]
+city_n_bar = unique(city_n_bar)
+bars_in_city <- group_by(city_n_bar,city,name)
+bar_franchise <- summarize(bars_in_city,count=n())
+bar_franchise=bar_franchise[order(bar_franchise$count,decreasing = T),]
+bar_franchise
+
+city_n_bar = review_bar[,c(1,2)]
+city_n_bar = unique(city_n_bar)
+bars_in_city <- group_by(city_n_bar,city)
+total_bars_in_city <- summarize(bars_in_city,count=n())
+total_bars_in_city=total_bars_in_city[order(total_bars_in_city$count,decreasing = T),]
+total_bars_in_city
+
+city_n_bar = review_bar[,c(1,2,4,8)]
+city_n_bar = unique(city_n_bar)
+bars_in_city <- group_by(city_n_bar,city)
+total_reviews_in_city <- summarize(bars_in_city,count=n())
+total_reviews_in_city=total_reviews_in_city[order(total_reviews_in_city$count,decreasing = T),]
+total_reviews_in_city
+
+bars_in_city <- group_by(city_n_bar,city,name)
+total_reviews_franchise_in_city <- summarize(bars_in_city,count=n())
+total_reviews_franchise_in_city=total_reviews_franchise_in_city[order(total_reviews_franchise_in_city$count,decreasing = T),]
+total_reviews_franchise_in_city
+```
+
+
+
+#JOIN NFL + REVIEW + SPORTS BAR
+```{r}
+nfl_scheduled_dates_for_review = scheduled_dates_for_review
+sapply(nfl_scheduled_dates_for_review,class)
+
+nfl_scheduled_dates_for_review = nfl_scheduled_dates_for_review[order(nfl_scheduled_dates_for_review$Date),]
+names(review_bar)[names(review_bar)=="date"] <- "Date"
+sapply(review_bar,class)
+
+review_bar_NFL_join = merge(x = review_bar, y = nfl_scheduled_dates_for_review, by = "Date")
+```
+
+```{r}
+
+```
