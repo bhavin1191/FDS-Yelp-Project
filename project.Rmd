@@ -16,20 +16,32 @@ knitr::opts_chunk$set(
 
 
 ```{r}
+#install.packages("gbm")
+
+library(randomForest)
+library(caret)
 library(rjson)
+library(ggplot2)
 library(dplyr)
 library(XML)
 library(htmltools)
 library(ggplot2)
 library(sqldf)
 library(lubridate)
+library(caret)
+library(data.table)
+library(RTextTools)
+library(e1071)
+library(party)
+library(gbm)
 ```
+
 
 #Review Source
 
 Cleaning Review
 ```{r}
-setwd("D:/Fall 2016/Data_Science/Project Data Set/yelp_json_csv_converter")
+#setwd("D:/Fall 2016/Data_Science/Project Data Set/yelp_json_csv_converter")
 
 ###review data cleaning
 ###colclasses helps us to read specific columns
@@ -44,10 +56,15 @@ summary(reviews_1216)
 
 
 #Business
+
+Issue: JSON to CSV does not give correct ouput hence we use the following code for better result
+
 ```{r}
 ### Business Data Set Cleaninig
+
+#getwd()
+setwd("C:/Users/OM NAMAH SHIVAY/Desktop/Study/Foundation of Data Science/Project/data")
 current_dir = getwd()
-setwd("D:/Fall 2016/Data_Science/Project Data Set/yelp_json_csv_converter")
 filename = "yelp_academic_dataset_business.json"
 con = file(filename, "r")
 input <- readLines(con, -1L)
@@ -56,8 +73,11 @@ test <- lapply(test, cbind)
 test <- as.data.frame(test)
 test <- as.data.frame(t(test))
 row.names(test) <- seq(1, nrow(test))
+
+#fetching required columns
 business_clean <- test[c(1,5,6,7,8,11,12)]
 
+#defining type of columns
 business_clean$categories <- as.character(business_clean$categories)
 business_clean$review_count <- as.numeric(business_clean$review_count)
 business_clean$business_id <- as.character(business_clean$business_id)
@@ -72,33 +92,42 @@ bar_business <- filter(business_clean,grepl("Bars",x = categories))
 sports_bar_business <- filter(bar_business,grepl("Sports Bars",x = categories))
 summary(sports_bar_business)
 setwd(current_dir)
+
 ```
 
 
 #NFL Schedule
+
+Performed Web Scrapping for getting NFL Schdule Sept 2012 onwards
 ```{r}
-setwd('D:/Fall 2016/Data_Science/Project Data Set/raw_data')
+# setwd('D:/Fall 2016/Data_Science/Project Data Set/raw_data')
 
 #2012 Schedule
 htmldoc <- htmlParse("http://static.pfref.com/years/2012/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
-#htmldoc
 #reading the table contents from the html document using the readHTMLTable
 NFLSchedule2012 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
 NFLSchedule2012 <- NFLSchedule2013[-c(17,34,51,67,82,98,114,128,142,157,173,188,205,222,239,256,273),]
-
 NFLSchedule2012_clean <- NFLSchedule2013[,c(1,2,3,4,5,7)]
+sapply(NFLSchedule2012_clean,class)
+NFLSchedule2012_clean$Day = as.character(NFLSchedule2012_clean$Day)
 NFLSchedule2012_clean['Year'] = 2012
+NFLSchedule2012_clean[grep("January",x = NFLSchedule2012_clean$Date),]$Year = 2013
+NFLSchedule2012_clean[grep("February",x = NFLSchedule2012_clean$Date),]$Year = 2013
+tail(NFLSchedule2012_clean)
 #write.csv(x = NFLSchedule2012_clean,file = "NFLSchedule2012_clean.csv")
+#2012 Schedule
 
-#2013
+#2013 Schdule
 htmldoc <- htmlParse("http://static.pfref.com/years/2013/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
-#htmldoc
 #reading the table contents from the html document using the readHTMLTable
 NFLSchedule2013 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
 NFLSchedule2013 <- NFLSchedule2013[-c(17,34,51,67,82,98,114,128,142,157,173,188,205,222,239,256,273),]
 NFLSchedule2013_clean <- NFLSchedule2013[,c(1,2,3,4,5,7)]
 NFLSchedule2013_clean['Year'] = 2013
-write.csv(x = NFLSchedule2013_clean,file = "NFLSchedule2013_clean.csv")
+NFLSchedule2013_clean[grep("January",x = NFLSchedule2013_clean$Date),]$Year = 2014
+NFLSchedule2013_clean[grep("February",x = NFLSchedule2013_clean$Date),]$Year = 2014
+# write.csv(x = NFLSchedule2013_clean,file = "NFLSchedule2013_clean.csv")
+#2013 Schedule
 
 #2014 Schedule
 htmldoc <- htmlParse("http://static.pfref.com/years/2014/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
@@ -106,42 +135,49 @@ htmldoc <- htmlParse("http://static.pfref.com/years/2014/games.htm#games::none",
 #reading the table contents from the html document using the readHTMLTable
 NFLSchedule2014 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
 NFLSchedule2014 <- NFLSchedule2014[-c(17,34,51,65,81,97,113,129,143,157,172,188,205,222,239,256,273),]
-
 NFLSchedule2014_clean <- NFLSchedule2014[,c(1,2,3,4,5,7)]
 NFLSchedule2014_clean['Year'] = 2014
-write.csv(x = NFLSchedule2014_clean,file = "NFLSchedule2014_clean.csv")
+NFLSchedule2014_clean[grep("January",x = NFLSchedule2014_clean$Date),]$Year = 2015
+NFLSchedule2014_clean[grep("February",x = NFLSchedule2014_clean$Date),]$Year = 2015
+# write.csv(x = NFLSchedule2014_clean,file = "NFLSchedule2014_clean.csv")
+#2014 Schedule
 
 #2015 Schedule
 htmldoc <- htmlParse("http://static.pfref.com/years/2015/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
-#htmldoc
 #reading the table contents from the html document using the readHTMLTable
 NFLSchedule2015 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
 NFLSchedule2015 <- NFLSchedule2015[-c(17,34,51,67,82,97,112,127,141,156,171,188,205,222,239,256,273),]
-
 NFLSchedule2015_clean <- NFLSchedule2015[,c(1,2,3,4,5,7)]
 NFLSchedule2015_clean['Year'] = 2015
-write.csv(x = NFLSchedule2015_clean,file = "NFLSchedule2015_clean.csv")
+NFLSchedule2015_clean[grep("January",x = NFLSchedule2015_clean$Date),]$Year = 2016
+NFLSchedule2015_clean[grep("February",x = NFLSchedule2015_clean$Date),]$Year = 2016
+# write.csv(x = NFLSchedule2015_clean,file = "NFLSchedule2015_clean.csv")
+#2015 Schedule
 
 #2016 schedule
-htmldoc <- htmlParse("http://static.pfref.com/years/2016/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
-#htmldoc
-#reading the table contents from the html document using the readHTMLTable
-NFLSchedule2016 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
-NFLSchedule2016 <- NFLSchedule2016[-c(17,34,51,67,82,98,114,128,142,157,172,189,205,222,239,256),]
-NFLSchedule2016_clean <- NFLSchedule2016[,c(1,2,3,4,5,7)]
-NFLSchedule2016_clean['Year'] = 2016
+# htmldoc <- htmlParse("http://static.pfref.com/years/2016/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
+# #reading the table contents from the html document using the readHTMLTable
+# NFLSchedule2016 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
+# NFLSchedule2016 <- NFLSchedule2016[-c(17,34,51,67,82,98,114,128,142,157,172,189,205,222,239,256),]
+# NFLSchedule2016_clean <- NFLSchedule2016[,c(1,2,3,4,5,7)]
+# NFLSchedule2016_clean['Year'] = 2016
+# NFLSchedule2016_clean[grep("January",x = NFLSchedule2016_clean$Date),]$Year = 2017
+# NFLSchedule2016_clean[grep("February",x = NFLSchedule2016_clean$Date),]$Year = 2017
 #write.csv(x = NFLSchedule2016_clean,file = "NFLSchedule2016_clean.csv")
+#2016 Schedule
 
 #combine dataframe into single dataframe
-NFLSchedule_1216 <- rbind(NFLSchedule2012_clean,NFLSchedule2013_clean, NFLSchedule2014_clean, NFLSchedule2015_clean, NFLSchedule2016_clean)
+# NFLSchedule_1216 <- rbind(NFLSchedule2012_clean,NFLSchedule2013_clean, NFLSchedule2014_clean, NFLSchedule2015_clean, NFLSchedule2016_clean)
+NFLSchedule_1216 <- rbind(NFLSchedule2012_clean,NFLSchedule2013_clean, NFLSchedule2014_clean, NFLSchedule2015_clean)
+
 #convert to date format yyyy-mm-dd
 NFLSchedule_1216$Date1 <- do.call(paste, c(NFLSchedule_1216[c("Date", "Year")], sep = " ")) 
 NFLSchedule_1216$Date1  <- as.Date(NFLSchedule_1216$Date1, "%B%d%Y")
 NFLSchedule_1216 <- NFLSchedule_1216[-3]
+
+#Setting column names
 names(NFLSchedule_1216)[names(NFLSchedule_1216)=="Date1"] <- "Date"
 NFLSchedule_1216 <- NFLSchedule_1216[-6]
-sapply(NFLSchedule_1216,class)
-
 NFLSchedule_1216 = NFLSchedule_1216[!NFLSchedule_1216$Day == "Day",]
 
 # NFLSchedule_1216$Week = as.numeric(NFLSchedule_1216$Week)
@@ -150,20 +186,19 @@ NFLSchedule_1216$Day = as.factor(NFLSchedule_1216$Day)
 NFLSchedule_1216$Time = as.character(NFLSchedule_1216$Time)
 NFLSchedule_1216$`Winner/tie` = as.character(NFLSchedule_1216$`Winner/tie`)
 NFLSchedule_1216$`Loser/tie` = as.character(NFLSchedule_1216$`Loser/tie`)
-sapply(NFLSchedule_1216,class)
-
 NFLSchedule_1216$`Date` = as.Date(NFLSchedule_1216$`Date`)
 # write.csv(x = NFLSchedule_1216,file = "NFLSchedule_1216.csv")
 
 NFLSchedule_1216 = NFLSchedule_1216[NFLSchedule_1216$Date >= "2012-09-01",]
 barplot(summary(NFLSchedule_1216$Day),col = c("red","blue","green","yellow","grey"))
 summary(NFLSchedule_1216)
+
 ```
 
 
+#Assigning NFL_Schedule Labels
 ```{r}
 raw_schedule <- NFLSchedule_1216
-# raw_schedule = raw_schedule[-1]
 raw_schedule$Week = as.character(raw_schedule$Week)
 
 raw_schedule$Week = ifelse(raw_schedule$Week == "WildCard",18,raw_schedule$Week)
@@ -173,31 +208,43 @@ raw_schedule$Week = ifelse(raw_schedule$Week == "SuperBowl",21,raw_schedule$Week
 
 raw_schedule$Week = as.numeric(raw_schedule$Week)
 
-# sapply(raw_schedule,class)
 measure_week = data.frame(raw_schedule$Week,raw_schedule$Date)
 colnames(measure_week) = c("Week","Date")
 
 #find unique values
 unq_measure_week = unique(measure_week)
-
+#Add next days for review taken into consideration
 nextdates = data.frame(unq_measure_week$Week,unq_measure_week$Date + 1)
 colnames(nextdates) = c("Week","Date")
 
 scheduled_dates_for_review <- rbind(unq_measure_week,nextdates)
-
 scheduled_dates_for_review$Day <- weekdays(as.Date(scheduled_dates_for_review$Date))
 
 scheduled_dates_for_review = unique(scheduled_dates_for_review)
 # write.csv(x = scheduled_dates_for_review,file = "nfl_scheduled_dates_for_review.csv")
 ```
 
+
+#USER Data
+```{r}
+current_dir = getwd()
+#setwd("D:/Fall 2016/Data_Science/Project Data Set/yelp_json_csv_converter")
+user_table = read.csv("yelp_academic_dataset_user.csv",header = TRUE, colClasses = c("NULL","NULL","numeric", "NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","character","NULL","character","NULL","NULL","NULL","NULL","NULL","NULL"))
+
+setwd(current_dir)
+
+```
+
+
 #SPORTS BAR + REVIEW
+#Cleaning
 ```{r}
 #reading sample review data
 review_bar <- merge(sports_bar_business,reviews_1216, by="business_id")
 # write.csv(x = review_bar,file = "review1316_sports_bar.csv")
 
 # sapply(review_bar,class)
+#Cleaning city column for Las Vegas. consist similar Names
 review_bar$city = trimws(review_bar$city,which = "both")
 review_bar[grep(".*.Las Vegas?",review_bar$city),]$city = "Las Vegas"
 review_bar$city = sapply(review_bar$city,tolower)
@@ -206,28 +253,13 @@ review_bar$city = sapply(review_bar$city,tolower)
 non_usa_states = c("QC","ON","EDH","MLN","HAM","SCB","ELN","FIF","NTH","XGL","BW","RP","KHL","NW","TAM","")
 non_usa_states = as.data.frame(non_usa_states)
 
+#check how many states records present
 sum(review_bar$state %in% non_usa_states$non_usa_states)
+
+#removing them from original data
 review_bar = review_bar[! review_bar$state %in% non_usa_states$non_usa_states,]
 
-##create a data frame
-review_bar_group <- review_bar
-sapply(review_bar,class)
-review_bar_group["year"] = year(review_bar$date)
-
-review_bar_group_business<- group_by(review_bar_group,business_id,year)
-count_business_review_bar <- summarize(review_bar_group_business,count=n())
-
-count_business_review_bar = count_business_review_bar[-3]
-count_business_review_bar =  unique(count_business_review_bar)
-
-count_business_review_bar<- group_by(count_business_review_bar,business_id)
-count_business_review_bar_year1 <- summarize(count_business_review_bar,count=n())
-count_business_review_bar_year1 = count_business_review_bar_year1[count_business_review_bar_year1$count == 5,]
-
-review_bar_merge = merge(y=review_bar,x=count_business_review_bar_year1,by = "business_id")
-
-review_bar = review_bar_merge[-2]
-
+#Check Bar franchise
 city_n_bar = review_bar[,c(1,2,4)]
 city_n_bar = unique(city_n_bar)
 bars_in_city <- group_by(city_n_bar,city,name)
@@ -235,20 +267,23 @@ bar_franchise <- summarize(bars_in_city,count=n())
 bar_franchise=bar_franchise[order(bar_franchise$count,decreasing = T),]
 bar_franchise
 
-city_n_bar = review_bar[,c(1,2)]
+#Total Bars in a city including franchise
+city_n_bar = review_bar[,c(1,3)]
 city_n_bar = unique(city_n_bar)
 bars_in_city <- group_by(city_n_bar,city)
 total_bars_in_city <- summarize(bars_in_city,count=n())
 total_bars_in_city=total_bars_in_city[order(total_bars_in_city$count,decreasing = T),]
 total_bars_in_city
 
-city_n_bar = review_bar[,c(1,2,4,8)]
+#Total reviews fetched per city from all the bars
+city_n_bar = review_bar[,c(1,3,4,8)]
 city_n_bar = unique(city_n_bar)
 bars_in_city <- group_by(city_n_bar,city)
 total_reviews_in_city <- summarize(bars_in_city,count=n())
 total_reviews_in_city=total_reviews_in_city[order(total_reviews_in_city$count,decreasing = T),]
 total_reviews_in_city
 
+# Total reviews for each bar including franchise for each city
 bars_in_city <- group_by(city_n_bar,city,name)
 total_reviews_franchise_in_city <- summarize(bars_in_city,count=n())
 total_reviews_franchise_in_city=total_reviews_franchise_in_city[order(total_reviews_franchise_in_city$count,decreasing = T),]
@@ -256,19 +291,619 @@ total_reviews_franchise_in_city
 ```
 
 
-
-#JOIN NFL + REVIEW + SPORTS BAR
+#JOIN NFL + REVIEW + SPORTS BAR 
+# Derive NFL Season Label
 ```{r}
 nfl_scheduled_dates_for_review = scheduled_dates_for_review
-sapply(nfl_scheduled_dates_for_review,class)
+# sapply(nfl_scheduled_dates_for_review,class)
 
 nfl_scheduled_dates_for_review = nfl_scheduled_dates_for_review[order(nfl_scheduled_dates_for_review$Date),]
 names(review_bar)[names(review_bar)=="date"] <- "Date"
-sapply(review_bar,class)
+nfl_scheduled_dates_for_review$Season = 0
+# nfl_scheduled_dates_for_review$Date = as.character(nfl_scheduled_dates_for_review$Date)
+
+
+for(x in 1:nrow(nfl_scheduled_dates_for_review))
+{
+  startDate = as.POSIXct("2012-09-01");
+  endDate = as.POSIXct("2013-02-15");
+  if ( nfl_scheduled_dates_for_review$Date[x] > startDate & nfl_scheduled_dates_for_review$Date[x] < endDate )
+  {
+    nfl_scheduled_dates_for_review$Season[x] = 2012
+  }
+  startDate = as.POSIXct("2013-09-01");
+  endDate = as.POSIXct("2014-02-15");
+    if ( nfl_scheduled_dates_for_review$Date[x] > startDate & nfl_scheduled_dates_for_review$Date[x] < endDate )
+  {
+    nfl_scheduled_dates_for_review$Season[x] = 2013
+    }
+  
+  startDate = as.POSIXct("2014-09-01");
+  endDate = as.POSIXct("2015-02-15");
+    if ( nfl_scheduled_dates_for_review$Date[x] > startDate & nfl_scheduled_dates_for_review$Date[x] < endDate )
+  {
+    nfl_scheduled_dates_for_review$Season[x] = 2014
+    }
+  
+  startDate = as.POSIXct("2015-09-01");
+  endDate = as.POSIXct("2016-02-15");
+    if ( nfl_scheduled_dates_for_review$Date[x] > startDate & nfl_scheduled_dates_for_review$Date[x] < endDate )
+  {
+    nfl_scheduled_dates_for_review$Season[x] = 2015
+  }
+}
 
 review_bar_NFL_join = merge(x = review_bar, y = nfl_scheduled_dates_for_review, by = "Date")
+
+city_n_bar = review_bar_NFL_join[,c(4,10,12,14)]
+city_n_bar = unique(city_n_bar)
+bars_in_city <- group_by(city_n_bar,city,Season,Week)
+total_reviews_in_city <- summarize(bars_in_city,count=n())
+total_reviews_in_city
+
+#start find common bars in all the years
+review_bar_group <- review_bar_NFL_join
+sapply(review_bar_NFL_join,class)
+review_bar_group["year"] = review_bar_NFL_join$Season
+
+review_bar_group_business<- group_by(review_bar_group,business_id,Season)
+
+count_business_review_bar <- summarize(review_bar_group_business,count=n())
+count_business_review_bar = count_business_review_bar[-3]
+count_business_review_bar =  unique(count_business_review_bar)
+count_business_review_bar<- group_by(count_business_review_bar,business_id)
+count_business_review_bar_year1 <- summarize(count_business_review_bar,count=n())
+summary(count_business_review_bar_year1)
+count_business_review_bar_year1 = count_business_review_bar_year1[count_business_review_bar_year1$count == 4,]
+
+review_bar_NFL_join <- merge(x=review_bar_NFL_join,y=count_business_review_bar_year1,by = "business_id")
+
+review_bar_NFL_join = review_bar_NFL_join[-15]
+
+city_n_bar = review_bar_NFL_join[,c(4,10,12,14)]
+city_n_bar = unique(city_n_bar)
+bars_in_city <- group_by(city_n_bar,city,Season,Week)
+total_reviews_in_city <- summarize(bars_in_city,count=n())
+total_reviews_in_city
+# end - find common bars in all the years
+
 ```
+
+#Join NFL+BAR+REVIEW+USERS
+```{r}
+final_out_data <- merge(x=review_bar_NFL_join,y=user_table,by="user_id")
+find_elite = final_out_data[c("user_id","Date","elite")]
+find_elite$Year = format(x = find_elite$Date,"%Y")
+
+for(x in 1:nrow(find_elite))
+{
+  if (grepl(find_elite$Year[x],x = find_elite$elite[x]))
+    {
+      find_elite$type[x]="elite"
+  }
+  else
+  {
+    find_elite$type[x]="non"
+  }
+}
+
+#Removing unwanted columns for join
+find_elite = find_elite[,-4:-3]
+
+#adding new column of uer type elite or non-elite
+elite_final_out <- plyr::join(x = final_out_data, y = find_elite, by = c("user_id","Date"),type = "left",match = "first")
+
+elite_count = elite_final_out[,c(5,14,17)]
+elite_count_in_city <- group_by(elite_final_out,city,Season,type)
+total_count_elite_in_city <- summarize(elite_count_in_city,count=n())
+total_count_elite_in_city
+
+```
+
+#Generate COunts
 
 ```{r}
 
+review_bar_NFL_city_star <- elite_final_out
+sapply(review_bar_NFL_city_star,class)
+# review_bar_NFL_city_star$Date = format(review_bar_NFL_city_star$Date, "%Y")
+
+# elite count
+review_bar_NFL_city_star1 = filter(review_bar_NFL_city_star,type == "elite")
+elite_count <- review_bar_NFL_city_star1 %>%
+select(Season,city,Week) %>%
+group_by(city,Season,Week) %>%
+summarize(elite_count=n()) %>%
+arrange(desc(city,Season,Week))
+
+# elite_count = elite_count[,-1]
+
+review_bar_NFL_city_star1 = filter(review_bar_NFL_city_star,type == "non")
+non_elite_count <- review_bar_NFL_city_star1 %>%
+select(Season,city,Week) %>%
+group_by(city,Season,Week) %>%
+summarize(non_elite_count=n()) %>%
+arrange(desc(city,Season,Week))
+
+#1-star review count
+review_bar_NFL_city_star1 = filter(review_bar_NFL_city_star,stars.y == 1)
+count_review_rating1 <- review_bar_NFL_city_star1 %>%
+ select(Season,city,Week) %>%
+ group_by(city,Season,Week) %>%
+ summarize(n=n()) %>%
+ arrange(desc(city,Season,Week))
+colnames(count_review_rating1)[which(names(count_review_rating1) == "n")] <- "1_star"
+
+#2-star review count
+review_bar_NFL_city_star2 = filter(review_bar_NFL_city_star,stars.y == 2)
+count_review_rating2 <- review_bar_NFL_city_star2 %>%
+ select(Season,city,Week) %>%
+ group_by(city,Season,Week) %>%
+ summarize(n=n()) %>%
+ arrange(desc(city,Season,Week))
+colnames(count_review_rating2)[which(names(count_review_rating2) == "n")] <- "2_star"
+
+#3-star review count
+review_bar_NFL_city_star3 = filter(review_bar_NFL_city_star,stars.y == 3)
+count_review_rating3 <- review_bar_NFL_city_star3 %>%
+ select(Season,city,Week) %>%
+ group_by(city,Season,Week) %>%
+ summarize(n=n()) %>%
+ arrange(desc(city,Season,Week))
+colnames(count_review_rating3)[which(names(count_review_rating3) == "n")] <- "3_star"
+
+#4-star review count
+review_bar_NFL_city_star4 = filter(review_bar_NFL_city_star,stars.y == 4)
+count_review_rating4 <- review_bar_NFL_city_star4 %>%
+ select(Season,city,Week) %>%
+ group_by(city,Season,Week) %>%
+ summarize(n=n()) %>%
+ arrange(desc(city,Season,Week))
+colnames(count_review_rating4)[which(names(count_review_rating4) == "n")] <- "4_star"
+
+#5-star review count
+review_bar_NFL_city_star5 = filter(review_bar_NFL_city_star,stars.y == 5)
+count_review_rating5 <- review_bar_NFL_city_star5 %>%
+ select(Season,city,Week) %>%
+ group_by(city,Season,Week) %>%
+ summarize(n=n()) %>%
+ arrange(desc(city,Season,Week))
+colnames(count_review_rating5)[which(names(count_review_rating5) == "n")] <- "5_star"
+
 ```
+
+
+#Converting into final model inout template
+```{r}
+
+sports_analysis_data <- elite_final_out
+# sports_analysis_data$Date = as.Date(x = sports_analysis_data$Date)
+# sports_analysis_data$Date = format(sports_analysis_data$Date, "%Y")
+
+fnl1 <- sports_analysis_data %>%
+  select(Season,city,Week) %>%
+  group_by(city,Season,Week) %>%
+  summarize(n=n()) %>%
+  arrange(desc(city,Season,Week))
+
+names(fnl1)[names(fnl1)=="n"] <- "count"
+
+# model_input = cbind(fnl1,count_review_rating1,count_review_rating2,count_review_rating3,count_review_rating4,count_review_rating5,elite_count,non_elite_count)
+
+```
+
+#ANALYSIS
+```{r}
+
+see_unique = unique(fnl1[1])
+sapply(see_unique,class)
+
+city_state = see_unique
+repeat_year = data.frame(sort(rep(city_state$city,84)))
+colnames(repeat_year)="city"
+repeat_year$city = as.character(repeat_year$city)
+repeat_year$Season = seq(2012,2015)
+repeat_year$Season = as.numeric(repeat_year$Season)
+sapply(repeat_year,class)
+repeat_year = repeat_year %>% arrange(city,Season)
+repeat_year$Week = seq(1,21)
+
+expand = repeat_year
+expand$count=NA
+
+sapply(expand,class)
+sapply(fnl1,class)
+expand$count = as.character(expand$count)
+expand$Season = as.numeric(expand$Season)
+expand$Week = as.numeric(expand$Week)
+sapply(expand,class)
+sapply(fnl1,class)
+
+new_frame = fnl1
+
+cleaned_data = left_join(x = expand,y=new_frame,by = c("Season","city","Week"))
+
+cleaned_data = cleaned_data[-4]
+names(cleaned_data)[names(cleaned_data)=="count.y"] <- "count_review"
+
+cleaned_data =  left_join(x = cleaned_data,y=count_review_rating5,by = c("Season","city","Week"))
+cleaned_data =  left_join(x = cleaned_data,y=count_review_rating4,by = c("Season","city","Week"))
+cleaned_data =  left_join(x = cleaned_data,y=count_review_rating3,by = c("Season","city","Week"))
+cleaned_data =  left_join(x = cleaned_data,y=count_review_rating2,by = c("Season","city","Week"))
+cleaned_data =  left_join(x = cleaned_data,y=count_review_rating1,by = c("Season","city","Week"))
+sapply(elite_final_out,class)
+
+cleaned_data =  left_join(x = cleaned_data,y=elite_count,by = c("Season","city","Week"))
+cleaned_data =  left_join(x = cleaned_data,y=non_elite_count,by = c("Season","city","Week"))
+
+#Filling all NA's to 0
+cleaned_data[is.na(cleaned_data)] = 0  
+# sapply(cleaned_data,class)
+
+#counting how many weeks per city per year
+subset_fnl1 <- fnl1 %>%
+select(city) %>%
+group_by(city) %>%
+summarize(n=n()) %>%
+arrange(desc(city))
+
+ggplot(data = subset_fnl1,aes(x=city,y=n))+geom_point()+theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+subset_fnl1 = subset_fnl1[subset_fnl1$n > 70,1] 
+
+
+model_input = inner_join(cleaned_data,subset_fnl1,by="city")
+# write.csv(model_input,"model.csv")
+
+barplot(table(model_input$count_review))
+
+assigned_label = model_input
+assigned_label$label <-cut(assigned_label$count_review, seq(1,100,5), right=FALSE, labels=c(1:19))
+# assigned_label = assigned_label[-5]
+assigned_label$label = as.numeric(assigned_label$label)
+assigned_label[is.na(assigned_label)] = 0
+
+sapply(assigned_label,class)
+
+decision_tree <- ctree(label ~ ., data = assigned_label)
+
+plot(decision_tree)
+
+assigned_label$label = as.factor(assigned_label$label)
+
+set.seed(7355)
+trainIndex <- createDataPartition(assigned_label$label, p = .7, list = FALSE, times = 1) 
+train.data <- assigned_label[ trainIndex,] 
+test.data <- assigned_label[-trainIndex,] 
+
+attach(test.data)
+x = subset(test.data,select=-label)
+y = label
+detach(test.data)
+
+svm_model = svm(label ~ ., data=train.data)
+summary(svm_model)
+pre = predict(svm_model,x)
+
+plot(svm_model$fitted)
+
+
+
+all_model_accuracy <- data.frame(model = as.character(),accuracy = as.numeric()) 
+#all_model_specificity <- data.frame(model = as.character(),specificity = as.numeric()) 
+
+
+svm_confusion_matrix = confusionMatrix(y,pre)
+svm_confusion_matrix_accuracy = as.data.frame(svm_confusion_matrix$overall)
+
+new_row = data.frame(model = "SVM",accuracy = svm_confusion_matrix_accuracy[1,1])
+all_model_accuracy = rbind(all_model_accuracy,new_row)
+
+
+
+table(assigned_label$label)
+
+set.seed(123)
+
+```
+
+
+```{r}
+
+#assigned_label = assigned_label[-4]
+sapply(assigned_label,class)
+assigned_label$label = as.numeric(assigned_label$label)
+assigned_label = assigned_label[-4]
+#install.packages("nnet")
+library(nnet)
+colnames(assigned_label) = c("city","Season","Week","star.5","star.4","star.3","star.2","star.1","elite","nonelite","label")
+
+model = glm(label ~ city + Season +Week+elite+nonelite,data = assigned_label)
+
+fit = multinom(label ~ city + Season + Week + elite+nonelite,data = assigned_label)
+pre = predict(fit,assigned_label)
+
+length(which(pre != assigned_label$label))/nrow(assigned_label)
+indices = sample(1:588, 588/2)
+train = assigned_label[indices,]
+test = assigned_label[-indices,]
+
+fit = multinom(label ~ city + Season + Week + star.5+  elite+nonelite,data = train)
+pre = predict(fit, test)
+length(which(pre != test$label))/nrow(test)
+
+mean(pre != test$label)
+
+new_row = data.frame(model = "normal glm",accuracy = mean(pre != test$label))
+all_model_accuracy = rbind(all_model_accuracy,new_row)
+
+fit = glm(label ~ city + Season + Week + star.5+  elite+nonelite,data = train, family = 'multinomial')
+pre = predict(fit, test)
+length(which(pre != test$label))/nrow(test)
+
+mean(pre != test$label)
+
+
+assigned_label$label = factor(assigned_label$label)
+assigned_label$city = factor(assigned_label$city)
+assigned_label$Season = factor(assigned_label$Season)
+assigned_label$Week = factor(assigned_label$Week)
+unique(assigned_label$label)
+train[] = lapply(train, factor) 
+test[] = lapply(test, factor) 
+
+
+
+test$city <- factor(test$city, levels=levels(train$city))
+test$Season <- factor(test$Season, levels=levels(train$Season))
+test$Week <- factor(test$Week, levels=levels(train$Week))
+test$star.5 <- factor(test$star.5, levels=levels(train$star.5))
+test$star.4 <- factor(test$star.4, levels=levels(train$star.4))
+test$star.3 <- factor(test$star.3, levels=levels(train$star.3))
+test$star.2 <- factor(test$star.2, levels=levels(train$star.2))
+test$star.1 <- factor(test$star.1, levels=levels(train$star.1))
+test$elite <- factor(test$elite, levels=levels(train$elite))
+test$nonelite <- factor(test$nonelite, levels=levels(train$nonelite))
+test$label <- factor(test$label, levels=levels(train$label))
+#test$isTest <- factor(test$isTest, levels=levels(train$isTest))
+
+
+
+RF_model = randomForest(label ~ city + Season + Week + star.5+  elite+nonelite,data = train, mtry = 3, ntree = 1000)
+
+pre = predict(RF_model, test, type = 'response')
+length(which(pre != test$label))/nrow(test)
+
+mean(pre != test$label)
+
+
+RF_confusion_matrix = confusionMatrix(pre,test$label)
+RF_confusion_matrix_accuracy = as.data.frame(RF_confusion_matrix$overall)
+new_row = data.frame(model = "randomForest",accuracy = RF_confusion_matrix_accuracy[1,1])
+all_model_accuracy = rbind(all_model_accuracy,new_row)
+
+predict_probabilities = predict(fit,test,type='prob')
+predict_probabilities
+
+
+
+
+
+
+#fit = randomForest(label ~ city + Season + Week + star.5+  elite+nonelite,data = train, mtry = 3, ntree = 1000)
+#fit
+#pre = predict(fit, test, type = 'response')
+#length(which(pre != test$label))/nrow(test)
+
+#mean(pre != test$label)
+
+#predict_probabilities = predict(fit,test,type='prob')
+#predict_probabilities
+
+#confusionMatrix(pre,test$label)
+
+```
+
+
+Plotting accuracy of all models  
+
+```{r}
+ggplot(data = all_model_accuracy,aes(x = model,y = accuracy)) + geom_bar(stat="identity",fill = "blue") +
+ xlab("Models") +
+  ylab("Accuracy") +
+  ggtitle("Model Accuracy")
+
+
+svm_model_class_stats = as.data.frame(svm_confusion_matrix$byClass)
+plot(svm_model_class_stats$Sensitivity, svm_model_class_stats$Specificity, main="SVM Class sensitivity and specificity", xlab="Sensitivity ", ylab="Specificity")
+
+RF_model_class_stats = as.data.frame(RF_confusion_matrix$byClass)
+plot(RF_model_class_stats$Sensitivity, RF_model_class_stats$Specificity, main="Random Forest Class Sensitivity and specificity",xlab="Sensitivity ", ylab="Specificity")
+
+
+```
+
+
+Random forest ROC
+
+```{r}
+library(caret)
+#install.packages("pROC")
+library(pROC)
+
+
+
+
+result.predicted.prob <- as.data.frame(predict(RF_model, test, type="prob")) # Prediction
+
+result.roc <- roc(test$label, result.predicted.prob$`4`) # Draw ROC curve.
+plot(result.roc, print.thres="best", print.thres.best.method="closest.topleft")
+
+result.coords <- coords(result.roc, "best", best.method="closest.topleft", ret=c("threshold", "accuracy"))
+print(result.coords)#to get threshold and accuracy
+
+```
+#Not working
+```{r}
+#teseting random forest
+#sapply(test, class)
+#sapply(train, class)
+#train = train[-11]
+#test = test[,-11]
+#fit = randomForest(label ~ city + Season + Week + star.5+  elite+nonelite,data = train, mtry = 6, ntree = 1000)
+#fit
+
+#pre = predict(fit, test, type = 'response')
+#length(which(pre != test$label))/nrow(test)
+
+
+#confusionMatrix(fit,test)
+#mean(pre != test$label)
+
+
+#testing gbm
+fit = gbm(label ~ city + Season + Week + star.5+  elite+nonelite,data = train, n.trees = 500)
+#fit$data$x
+pre = predict(fit, test, type= "response", n.trees = 500)
+length(which(round(pre) != test$label))/nrow(test)
+pred_class <- apply(pre, 1, which.max)
+confusionMatrix(pre,test$label)
+```
+
+
+Graph plot
+```{r}
+#barplot(summary(NFLSchedule_1216$Day),col = c("red","blue","green","yellow","grey"))
+#sapply(mtcars, class)
+
+#State wise plot for business stars
+qplot(factor(stars.x), data=review_bar_NFL_join, geom="bar", fill=factor(state),xlab = "Business Stars",ylab = "Volume of Reviews",main = "Volume of reviews for business stars")
+
+#State wise plot for review stars
+qplot(factor(stars.y), data=review_bar_NFL_join, geom="bar", fill=factor(state),xlab = "Business Stars",ylab = "Volume of Reviews",main = "Volume of reviews for review stars")
+
+# Review star plot for top 5 cities
+review_bar_NFL_join_top5city = merge(review_bar_NFL_join,subset_fnl1, by="city")
+qplot(factor(stars.y), data=review_bar_NFL_join_top5city, geom="bar", fill=factor(city),main = "Review stars per city")
+
+# Business star plot for top 5 cities
+qplot(factor(stars.x), data=review_bar_NFL_join_top5city, geom="bar", fill=factor(city),main = "Business stars per city")
+
+
+#Plot total reviews in top cities
+plot_total_reviews_top_city = merge(total_reviews_franchise_in_city,subset_fnl1,by="city")
+ggplot(data = plot_total_reviews_top_city,aes(x = city,y = count,fill=cond)) + geom_bar(stat="identity",fill = "blue") +
+ xlab("Cities") +
+  ylab("Volume of Reviews") +
+  ggtitle("Total Volume of Reviews for cities")
+
+#plot total reviews in top cities during NFL season
+
+review_bar_nfl_city_count <- review_bar_NFL_join %>%
+select(city) %>%
+group_by(city) %>%
+summarize(review_count=n()) %>%
+arrange(desc(city))
+
+plot_review_bar_nfl_city_count = merge(review_bar_nfl_city_count,subset_fnl1,by="city")
+ggplot(data = plot_review_bar_nfl_city_count,aes(x = city,y = review_count,fill=cond)) + geom_bar(stat="identity",fill = "blue") + 
+  xlab("Cities") +
+  ylab("Volume of Reviews") +
+  ggtitle("Total Volume of Reviews for cities during NFL")
+
+#plot_review_bar_nfl_city_count1 = merge(plot_review_bar_nfl_city_count,plot_total_reviews_top_city,by = "city")
+#ggplot(plot_review_bar_nfl_city_count1, aes(city)) + geom_bar(aes(fill = review_count), position = "dodge")
+
+#ggplot(plot_review_bar_nfl_city_count1,aes(city,count,fill=review_count))+
+ #    geom_bar(stat="identity",position="dodge")
+
+#library(reshape2)
+#df.long<-melt(plot_review_bar_nfl_city_count1)
+#ggplot(df.long,aes(city,value,fill=count))+
+#     geom_bar(stat="identity",position="dodge")
+
+
+#counts <- table(plot_review_bar_nfl_city_count1$review_count, plot_review_bar_nfl_city_count1$count)
+#barplot(counts, main="Car Distribution by Gears and VS",
+ # xlab="Number of Gears", col=c("darkblue","red"),
+ #	legend = rownames(counts), beside=TRUE)
+```
+
+
+#References
+
+We would like to thank Qi Wang and Professor Rumi Chunara for their valuable inputs
+
+
+https://www.yelp.com/dataset_challenge
+
+http://static.pfref.com/years/2015/games.htm#games::none
+
+http://www.businessinsider.com/most-watched-sporting-events-of-2015-2016-1
+
+https://www.brightlocal.com/2015/08/20/92-of-consumers-now-read-online-reviews-for-local-businesses/
+
+https://www.tutorialspoint.com/r/r_decision_tree.htm
+
+https://www.r-bloggers.com/predicting-wine-quality-using-random-forests/
+
+http://www.fftoday.com/nfl/schedule.php
+
+http://www.espn.com/nfl/schedulegrid
+
+http://www.sportsmediawatch.com/2016/07/halftime-most-watched-sporting-events-year-so-far-nflnba/
+
+http://variety.com/2015/tv/news/nfl-record-ratings-for-opening-week-1201595991/
+
+https://www.mathworks.com/help/stats/classificationlinear.predict.html
+
+https://biz.yelp.com/support/responding_to_reviews
+
+https://www.fundera.com/blog/2015/05/28/yelp-reviews-does-anybody-really-care
+
+http://plei-plei.info/wp-content/uploads/2012/03/tv-watching-at-sports-bars-as-social-i
+nteraction.pdf
+
+http://www.hbs.edu/faculty/Publication%20Files/12-016_a7e4a5a2-03f9-490d-b093-
+8f951238dba2.pdf
+
+http://hbswk.hbs.edu/item/the-yelp-factor-are-consumer-reviews-good-for-business
+
+http://localvox.com/blog/how-to-avoid-the-yelp-review-filter-and-get-more-positive-reviews/
+
+http://stories.journalism.ku.edu/j415-sp15/2015/03/11/impact-yelp-reviews-have-on-local-businesses-ishard-to-gauge-owners-managers-say/
+
+http://www.kdnuggets.com/2015/05/3-things-about-data-science.html
+
+https://www.yelp.com/search?find_desc=Sports+Bars&find_loc=New+York,+NY
+
+http://www.mobilelifecentre.org/sites/default/files/gz_mobileHCI_final.pdf
+
+http://www.si.com/extra-mustard/2015/12/03/fifa-scandal-arrests-hotel-baur-au-lac-yelp-review
+
+https://en.wikipedia.org/wiki/Sports_in_the_United_States
+
+https://en.wikipedia.org/wiki/2015_Copa_Am%C3%A9rica
+
+http://www.skillsyouneed.com/num/percent-change.html
+
+https://rstudio-pubs-static.s3.amazonaws.com/127992_a060e7d374d549998df02fc11ac8c334.html
+
+https://www.cct.lsu.edu/~pkondi1/bare_jrnl
+
+http://www.cs.ucsb.edu/~korpeoglu/cs290d/yelpbusy.pdf
+
+http://www.galvanize.com/blog/bayesian-statistics-analyzing-yelp
+
+http://www.topendsports.com/events/calendar-2016.htm
+
+http://www.topendsports.com/events/
+
+https://en.wikipedia.org/wiki/List_of_multi-sport_events
+
+http://www.espn.com/nfl/schedule
+
+http://www.sbnation.com/nfl/2016/4/14/11435628/2016-nfl-schedule-released-dates-times-r
+egular-season
+
+https://www.kaggle.com/maxhorowitz/nflplaybyplay2015
