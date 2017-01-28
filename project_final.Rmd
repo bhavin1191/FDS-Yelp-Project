@@ -1,0 +1,987 @@
+---
+title: 'Project: Sports Bar + Yelp Reviews + NFL'
+author: "Bhavin Mehta (bvm223) And Shyam Joshi (srj295)"
+date: "December 15, 2016"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+#Include Libraries
+Including various libraries required for Data Transformations, filtering and data merging
+
+```{r}
+library(party)
+library(knitr)
+library(tm)
+library(randomForest)
+library(caret)
+library(rjson)
+library(ggplot2)
+library(dplyr)
+library(XML)
+library(htmltools)
+library(ggplot2)
+library(sqldf)
+library(lubridate)
+library(caret)
+library(data.table)
+library(RTextTools)
+library(e1071)
+library(nnet)
+library(gbm)
+library(pROC)
+library(wordcloud)
+```
+
+#Review Source
+Downloaded data from Yelp DataSet Challenge. References can be found from report.
+Used csv format for faster loading using colclasses parameter
+
+
+Loading and Filtering Review Data
+```{r}
+setwd("C:/Users/OM NAMAH SHIVAY/Desktop/Study/Foundation of Data Science/Project/data")
+
+###review data cleaning
+#colclasses helps us to read specific columns
+largeData <- read.csv("yelp_academic_dataset_review.csv",header = TRUE, colClasses = c("character", "character", "NULL","NULL","character","NULL","numeric","Date","NULL","NULL"))
+# write.csv(x = largeData,file = "reviews_clean1.csv")
+# ##sapply(largeData,class)
+
+largeData_text <- read.csv("yelp_academic_dataset_review.csv",header = TRUE, colClasses = c("character", "character", "character","NULL","NULL","NULL","NULL","NULL","NULL","NULL"))
+
+###fetching data for 12-16
+reviews_1216 = largeData[largeData$date >= "2012-09-01", ]
+summary(reviews_1216)
+# write.csv(x = reviews_1216,file = "reviews_1216.csv")
+```
+
+
+#Business Source
+Downloaded data from Yelp DataSet Challenge. References can be found from report.
+Issue: JSON to CSV does not give correct ouput hence we use the following code for better result
+
+
+Loading Business Data
+```{r}
+### Loading Business Data Set
+filename = "yelp_academic_dataset_business.json"
+con = file(filename, "r")
+input <- readLines(con, -1L)
+test <- lapply(input, fromJSON)
+test <- lapply(test, cbind)
+test <- as.data.frame(test)
+test <- as.data.frame(t(test))
+row.names(test) <- seq(1, nrow(test))
+
+#fetching required columns
+business_clean <- test[c(1,5,6,7,8,11,12)]
+
+#defining data type for columns
+business_clean$categories <- as.character(business_clean$categories)
+business_clean$review_count <- as.numeric(business_clean$review_count)
+business_clean$business_id <- as.character(business_clean$business_id)
+business_clean$stars <- as.numeric(business_clean$stars)
+business_clean$city = as.character(business_clean$city)
+business_clean$state = as.character(business_clean$state)
+business_clean$name = as.character(business_clean$name)
+# write.csv(x = business_clean,file = "business.csv")
+
+#Filtering business data for sports bars
+bar_business <- filter(business_clean,grepl("Bars",x = categories))
+sports_bar_business <- filter(bar_business,grepl("Sports Bars",x = categories))
+summary(sports_bar_business)
+```
+#NFL Schedule
+Reference is taken from NFL Pro Reference site. Link can be found from the report
+
+
+Performed Web Scrapping for getting NFL Schdule Sept 2012 onwards which is the start of the season
+```{r}
+#2012 Schedule
+htmldoc <- htmlParse("http://static.pfref.com/years/2012/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
+#reading the table contents from the html document using the readHTMLTable
+NFLSchedule2012 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
+NFLSchedule2012 <- NFLSchedule2012[-c(17,34,51,67,82,98,114,128,142,157,173,188,205,222,239,256,273),]
+#identifying correct columns for the NFL Schedule data
+NFLSchedule2012_clean <- NFLSchedule2012[,c(1,2,3,4,5,7)]
+##sapply(NFLSchedule2012_clean,class)
+NFLSchedule2012_clean$Day = as.character(NFLSchedule2012_clean$Day)
+NFLSchedule2012_clean['Year'] = 2012
+#Assigning Year of the Season
+NFLSchedule2012_clean[grep("January",x = NFLSchedule2012_clean$Date),]$Year = 2013
+NFLSchedule2012_clean[grep("February",x = NFLSchedule2012_clean$Date),]$Year = 2013
+tail(NFLSchedule2012_clean)
+#write.csv(x = NFLSchedule2012_clean,file = "NFLSchedule2012_clean.csv")
+#2012 Schedule
+
+#2013 Schdule
+htmldoc <- htmlParse("http://static.pfref.com/years/2013/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
+#reading the table contents from the html document using the readHTMLTable
+NFLSchedule2013 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
+NFLSchedule2013 <- NFLSchedule2013[-c(17,34,51,67,82,98,114,128,142,157,173,188,205,222,239,256,273),]
+#identifying correct columns for the NFL Schedule data
+NFLSchedule2013_clean <- NFLSchedule2013[,c(1,2,3,4,5,7)]
+NFLSchedule2013_clean['Year'] = 2013
+NFLSchedule2013_clean[grep("January",x = NFLSchedule2013_clean$Date),]$Year = 2014
+NFLSchedule2013_clean[grep("February",x = NFLSchedule2013_clean$Date),]$Year = 2014
+# write.csv(x = NFLSchedule2013_clean,file = "NFLSchedule2013_clean.csv")
+#2013 Schedule
+
+#2014 Schedule
+htmldoc <- htmlParse("http://static.pfref.com/years/2014/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
+#htmldoc
+#reading the table contents from the html document using the readHTMLTable
+NFLSchedule2014 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
+NFLSchedule2014 <- NFLSchedule2014[-c(17,34,51,65,81,97,113,129,143,157,172,188,205,222,239,256,273),]
+NFLSchedule2014_clean <- NFLSchedule2014[,c(1,2,3,4,5,7)]
+NFLSchedule2014_clean['Year'] = 2014
+NFLSchedule2014_clean[grep("January",x = NFLSchedule2014_clean$Date),]$Year = 2015
+NFLSchedule2014_clean[grep("February",x = NFLSchedule2014_clean$Date),]$Year = 2015
+# write.csv(x = NFLSchedule2014_clean,file = "NFLSchedule2014_clean.csv")
+#2014 Schedule
+
+#2015 Schedule
+htmldoc <- htmlParse("http://static.pfref.com/years/2015/games.htm#games::none",isURL = TRUE,isHTML = TRUE)
+#reading the table contents from the html document using the readHTMLTable
+NFLSchedule2015 <- readHTMLTable(htmldoc,as.data.frame = TRUE,which = 1)
+NFLSchedule2015 <- NFLSchedule2015[-c(17,34,51,67,82,97,112,127,141,156,171,188,205,222,239,256,273),]
+NFLSchedule2015_clean <- NFLSchedule2015[,c(1,2,3,4,5,7)]
+NFLSchedule2015_clean['Year'] = 2015
+NFLSchedule2015_clean[grep("January",x = NFLSchedule2015_clean$Date),]$Year = 2016
+NFLSchedule2015_clean[grep("February",x = NFLSchedule2015_clean$Date),]$Year = 2016
+# write.csv(x = NFLSchedule2015_clean,file = "NFLSchedule2015_clean.csv")
+#2015 Schedule
+
+#combine dataframe into single dataframe
+# NFLSchedule_1216 <- rbind(NFLSchedule2012_clean,NFLSchedule2013_clean, NFLSchedule2014_clean, NFLSchedule2015_clean, NFLSchedule2016_clean)
+NFLSchedule_1216 <- rbind(NFLSchedule2012_clean,NFLSchedule2013_clean, NFLSchedule2014_clean, NFLSchedule2015_clean)
+
+#convert to date format yyyy-mm-dd
+NFLSchedule_1216$Date1 <- do.call(paste, c(NFLSchedule_1216[c("Date", "Year")], sep = " ")) 
+NFLSchedule_1216$Date1  <- as.Date(NFLSchedule_1216$Date1, "%B%d%Y")
+NFLSchedule_1216 <- NFLSchedule_1216[-3]
+
+#Setting column names
+names(NFLSchedule_1216)[names(NFLSchedule_1216)=="Date1"] <- "Date"
+NFLSchedule_1216 <- NFLSchedule_1216[-6]
+NFLSchedule_1216 = NFLSchedule_1216[!NFLSchedule_1216$Day == "Day",]
+
+# NFLSchedule_1216$Week = as.numeric(NFLSchedule_1216$Week)
+NFLSchedule_1216$Day = as.character(NFLSchedule_1216$Day)
+NFLSchedule_1216$Day = as.factor(NFLSchedule_1216$Day)
+NFLSchedule_1216$Time = as.character(NFLSchedule_1216$Time)
+NFLSchedule_1216$`Winner/tie` = as.character(NFLSchedule_1216$`Winner/tie`)
+NFLSchedule_1216$`Loser/tie` = as.character(NFLSchedule_1216$`Loser/tie`)
+NFLSchedule_1216$`Date` = as.Date(NFLSchedule_1216$`Date`)
+# write.csv(x = NFLSchedule_1216,file = "NFLSchedule_1216.csv")
+
+#Final NFL Schedule from 2012 NFL Seson onwards
+NFLSchedule_1216 = NFLSchedule_1216[NFLSchedule_1216$Date >= "2012-09-01",]
+barplot(summary(NFLSchedule_1216$Day),col = c("red","blue","green","yellow","grey"))
+summary(NFLSchedule_1216)
+
+```
+
+
+#Assigning NFL_Schedule Labels
+Labelling the Playoffs according to weeks label.Each of the dates are arranged into 4 labels as per the dates
+Given the dates in NFL Schedule we consider next days as Yelp reviews posting day since they can be posted on next day from the game day.
+
+```{r}
+raw_schedule <- NFLSchedule_1216
+raw_schedule$Week = as.character(raw_schedule$Week)
+
+raw_schedule$Week = ifelse(raw_schedule$Week == "WildCard",18,raw_schedule$Week)
+raw_schedule$Week = ifelse(raw_schedule$Week == "Division",19,raw_schedule$Week)
+raw_schedule$Week = ifelse(raw_schedule$Week == "ConfChamp",20,raw_schedule$Week)
+raw_schedule$Week = ifelse(raw_schedule$Week == "SuperBowl",21,raw_schedule$Week)
+
+raw_schedule$Week = as.numeric(raw_schedule$Week)
+
+#Creating new frame to add next days to be considered as Yelp review posting days
+measure_week = data.frame(raw_schedule$Week,raw_schedule$Date)
+colnames(measure_week) = c("Week","Date")
+
+#find unique values
+unq_measure_week = unique(measure_week)
+#Add next days for review taken into consideration
+nextdates = data.frame(unq_measure_week$Week,unq_measure_week$Date + 1)
+colnames(nextdates) = c("Week","Date")
+
+#creating unique data for NFL Schedule
+scheduled_dates_for_review <- rbind(unq_measure_week,nextdates)
+scheduled_dates_for_review$Day <- weekdays(as.Date(scheduled_dates_for_review$Date))
+scheduled_dates_for_review = unique(scheduled_dates_for_review)
+# write.csv(x = scheduled_dates_for_review,file = "nfl_scheduled_dates_for_review.csv")
+```
+
+
+#USER Data
+Loading User data to fetch elite and non elite count for the reviews. Since elite reviews have more importance on decision making for other users.
+```{r}
+user_table = read.csv("yelp_academic_dataset_user.csv",header = TRUE, colClasses = c("NULL","NULL","numeric", "NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","character","NULL","character","NULL","NULL","NULL","NULL","NULL","NULL"))
+
+```
+
+
+#SPORTS BAR + REVIEW
+Here we perform the 1st stage of joining the data based on business_id on business and review data.
+
+
+We also perform Cleaning like lowercase for cities and removing non-usa states.
+
+
+We also generate different counts for total reviews in a city etc.
+```{r kable}
+#reading sample review data
+review_bar <- merge(sports_bar_business,reviews_1216, by="business_id")
+# write.csv(x = review_bar,file = "review1316_sports_bar.csv")
+
+#Cleaning city column for Las Vegas. consist similar Names
+review_bar$city = trimws(review_bar$city,which = "both")
+review_bar[grep(".*.Las Vegas?",review_bar$city),]$city = "Las Vegas"
+review_bar$city = sapply(review_bar$city,tolower)
+
+#remove non_us_states
+non_usa_states = c("QC","ON","EDH","MLN","HAM","SCB","ELN","FIF","NTH","XGL","BW","RP","KHL","NW","TAM","")
+non_usa_states = as.data.frame(non_usa_states)
+
+#check how many states records present
+sum(review_bar$state %in% non_usa_states$non_usa_states)
+
+#removing them from original data
+review_bar = review_bar[! review_bar$state %in% non_usa_states$non_usa_states,]
+
+#Check Bar franchise for each city
+city_n_bar = review_bar[,c('business_id','city','name')]
+city_n_bar = unique(city_n_bar)
+bars_in_city <- group_by(city_n_bar,city,name)
+bar_franchise <- summarize(bars_in_city,count=n())
+bar_franchise=bar_franchise[order(bar_franchise$count,decreasing = T),]
+kable(bar_franchise[1:20,])
+
+#Total Bars in a city including franchise
+city_n_bar = review_bar[,c('business_id','city')]
+city_n_bar = unique(city_n_bar)
+bars_in_city <- group_by(city_n_bar,city)
+total_bars_in_city <- summarize(bars_in_city,count=n())
+total_bars_in_city=total_bars_in_city[order(total_bars_in_city$count,decreasing = T),]
+kable(total_bars_in_city[1:20,])
+
+#total bars per city
+ggplot(total_bars_in_city,aes(y=city,x=count))+geom_point(aes(size=count)) + theme_bw()
+
+#Total reviews fetched per city from all the bars
+city_n_bar = review_bar[,c('business_id','city','name','review_id')]
+city_n_bar = unique(city_n_bar)
+bars_in_city <- group_by(city_n_bar,city)
+total_reviews_in_city <- summarize(bars_in_city,count=n())
+total_reviews_in_city=total_reviews_in_city[order(total_reviews_in_city$count,decreasing = T),]
+kable(total_reviews_in_city)
+
+# Total reviews for each bar including franchise for each city
+bars_in_city <- group_by(city_n_bar,city,name)
+total_reviews_franchise_in_city <- summarize(bars_in_city,count=n())
+total_reviews_franchise_in_city=total_reviews_franchise_in_city[order(total_reviews_franchise_in_city$count,decreasing = T),]
+kable(total_reviews_franchise_in_city[1:30,])
+```
+
+
+#JOIN NFL + REVIEW + SPORTS BAR
+This is the 2nd stage where we join the review_sports-bar data with NFL Schdule.
+
+
+Also, we need to look for only cities whose bars have maximum reviews in all the nfl season from 2012-2015. So we filter these bars base on the count in all the 4 years from 2012-13,2013-14,2014-15,2015-16.
+
+We are deriving NFL Season Labels which just states the Season label as 2012 for NFL Season 2012-13
+```{r}
+nfl_scheduled_dates_for_review = scheduled_dates_for_review
+# #sapply(nfl_scheduled_dates_for_review,class)
+
+nfl_scheduled_dates_for_review = nfl_scheduled_dates_for_review[order(nfl_scheduled_dates_for_review$Date),]
+names(review_bar)[names(review_bar)=="date"] <- "Date"
+nfl_scheduled_dates_for_review$Season = 0
+# nfl_scheduled_dates_for_review$Date = as.character(nfl_scheduled_dates_for_review$Date)
+# sapply(nfl_scheduled_dates_for_review,class)
+
+
+#Fixing the Season Label for the NFL Schdule according to the dates.
+#For eg Season 2012-2013 is considered as Season 2012
+for(x in 1:nrow(nfl_scheduled_dates_for_review))
+{
+  startDate = as.POSIXct("2012-09-01");
+  endDate = as.POSIXct("2013-02-15");
+  if ( nfl_scheduled_dates_for_review$Date[x] > startDate & nfl_scheduled_dates_for_review$Date[x] < endDate )
+  {
+    nfl_scheduled_dates_for_review$Season[x] = 2012
+  }
+  startDate = as.POSIXct("2013-09-01");
+  endDate = as.POSIXct("2014-02-15");
+    if ( nfl_scheduled_dates_for_review$Date[x] > startDate & nfl_scheduled_dates_for_review$Date[x] < endDate )
+  {
+    nfl_scheduled_dates_for_review$Season[x] = 2013
+    }
+
+  startDate = as.POSIXct("2014-09-01");
+  endDate = as.POSIXct("2015-02-15");
+    if ( nfl_scheduled_dates_for_review$Date[x] > startDate & nfl_scheduled_dates_for_review$Date[x] < endDate )
+  {
+    nfl_scheduled_dates_for_review$Season[x] = 2014
+    }
+
+  startDate = as.POSIXct("2015-09-01");
+  endDate = as.POSIXct("2016-02-15");
+    if ( nfl_scheduled_dates_for_review$Date[x] > startDate & nfl_scheduled_dates_for_review$Date[x] < endDate )
+  {
+    nfl_scheduled_dates_for_review$Season[x] = 2015
+  }
+}
+
+#Joining Reviews + Sports Bar + NFL Schedule
+review_bar_NFL_join = merge(x = review_bar, y = nfl_scheduled_dates_for_review, by = "Date")
+
+# city_n_bar = review_bar_NFL_join[,c(4,10,12,14)]
+# city_n_bar = unique(city_n_bar)
+# bars_in_city <- group_by(city_n_bar,city,Season,Week)
+# total_reviews_in_city <- summarize(bars_in_city,count=n())
+# total_reviews_in_city
+
+#start find common bars in all the years
+review_bar_group <- review_bar_NFL_join
+#sapply(review_bar_NFL_join,class)
+review_bar_group["year"] = review_bar_NFL_join$Season
+
+review_bar_group_business<- group_by(review_bar_group,business_id,Season)
+
+count_business_review_bar <- summarize(review_bar_group_business,count=n())
+count_business_review_bar = count_business_review_bar[-3]
+count_business_review_bar =  unique(count_business_review_bar)
+count_business_review_bar<- group_by(count_business_review_bar,business_id)
+count_business_review_bar_year1 <- summarize(count_business_review_bar,count=n())
+summary(count_business_review_bar_year1)
+count_business_review_bar_year1 = count_business_review_bar_year1[count_business_review_bar_year1$count == 4,]
+
+review_bar_NFL_join <- merge(x=review_bar_NFL_join,y=count_business_review_bar_year1,by = "business_id")
+
+review_bar_NFL_join = review_bar_NFL_join[-16]
+
+```
+
+
+#Join NFL+BAR+REVIEW+USERS
+This is the 4th stage where we are joining the data with user data to get the elite and non-elite user counts in the data
+```{r}
+#Joining (review+Sports Bar + NFL) + User
+final_out_data <- merge(x=review_bar_NFL_join,y=user_table,by="user_id")
+find_elite = final_out_data[c("user_id","Date","elite")]
+find_elite$Year = format(x = find_elite$Date,"%Y")
+
+#assigning elite and non elite labels
+for(x in 1:nrow(find_elite))
+{
+  if (grepl(find_elite$Year[x],x = find_elite$elite[x]))
+    {
+      find_elite$type[x]="elite"
+  }
+  else
+  {
+    find_elite$type[x]="non"
+  }
+}
+
+#Removing unwanted columns for join
+find_elite = find_elite[,-4:-3]
+
+#adding new column of uer type elite or non-elite
+elite_final_out <- plyr::join(x = final_out_data, y = find_elite, by = c("user_id","Date"),type = "left",match = "first")
+
+elite_count = elite_final_out[c("city","Season","type")]
+elite_count_in_city <- group_by(elite_final_out,city,Season,type)
+total_count_elite_in_city <- summarize(elite_count_in_city,count=n())
+#total_count_elite_in_city
+
+# ggplot(total_count_elite_in_city,aes(y=city,x=count))+geom_point(aes(size=count)) + theme_bw()
+```
+
+#Generate Counts
+Now we generate separate features for elite_user_count, non_elite_user_count, 5 Star, 4 Star Reviews etc.
+
+```{r}
+
+review_bar_NFL_city_star <- elite_final_out
+#sapply(review_bar_NFL_city_star,class)
+# review_bar_NFL_city_star$Date = format(review_bar_NFL_city_star$Date, "%Y")
+
+# elite count
+review_bar_NFL_city_star1 = filter(review_bar_NFL_city_star,type == "elite")
+elite_count <- review_bar_NFL_city_star1 %>%
+select(Season,city,Week) %>%
+group_by(city,Season,Week) %>%
+summarize(elite_count=n()) %>%
+arrange(desc(city,Season,Week))
+
+#non elite users count
+review_bar_NFL_city_star1 = filter(review_bar_NFL_city_star,type == "non")
+non_elite_count <- review_bar_NFL_city_star1 %>%
+select(Season,city,Week) %>%
+group_by(city,Season,Week) %>%
+summarize(non_elite_count=n()) %>%
+arrange(desc(city,Season,Week))
+
+#1-star review count
+review_bar_NFL_city_star1 = filter(review_bar_NFL_city_star,stars.y == 1)
+count_review_rating1 <- review_bar_NFL_city_star1 %>%
+ select(Season,city,Week) %>%
+ group_by(city,Season,Week) %>%
+ summarize(n=n()) %>%
+ arrange(desc(city,Season,Week))
+colnames(count_review_rating1)[which(names(count_review_rating1) == "n")] <- "star.1"
+
+#2-star review count
+review_bar_NFL_city_star2 = filter(review_bar_NFL_city_star,stars.y == 2)
+count_review_rating2 <- review_bar_NFL_city_star2 %>%
+ select(Season,city,Week) %>%
+ group_by(city,Season,Week) %>%
+ summarize(n=n()) %>%
+ arrange(desc(city,Season,Week))
+colnames(count_review_rating2)[which(names(count_review_rating2) == "n")] <- "star.2"
+
+#3-star review count
+review_bar_NFL_city_star3 = filter(review_bar_NFL_city_star,stars.y == 3)
+count_review_rating3 <- review_bar_NFL_city_star3 %>%
+ select(Season,city,Week) %>%
+ group_by(city,Season,Week) %>%
+ summarize(n=n()) %>%
+ arrange(desc(city,Season,Week))
+colnames(count_review_rating3)[which(names(count_review_rating3) == "n")] <- "star.3"
+
+#4-star review count
+review_bar_NFL_city_star4 = filter(review_bar_NFL_city_star,stars.y == 4)
+count_review_rating4 <- review_bar_NFL_city_star4 %>%
+ select(Season,city,Week) %>%
+ group_by(city,Season,Week) %>%
+ summarize(n=n()) %>%
+ arrange(desc(city,Season,Week))
+colnames(count_review_rating4)[which(names(count_review_rating4) == "n")] <- "star.4"
+
+#5-star review count
+review_bar_NFL_city_star5 = filter(review_bar_NFL_city_star,stars.y == 5)
+count_review_rating5 <- review_bar_NFL_city_star5 %>%
+ select(Season,city,Week) %>%
+ group_by(city,Season,Week) %>%
+ summarize(n=n()) %>%
+ arrange(desc(city,Season,Week))
+colnames(count_review_rating5)[which(names(count_review_rating5) == "n")] <- "star.5"
+
+```
+
+
+#Converting into final model input template
+This is the final stage. Here we aggregate the data based on each City,NFL Season and Week Label.
+```{r}
+
+sports_analysis_data <- elite_final_out
+
+#SQL type query interpretation
+fnl1 <- sports_analysis_data %>%
+  select(Season,city,Week) %>%
+  group_by(city,Season,Week) %>%
+  summarize(count=n()) %>%
+  arrange(desc(city,Season,Week))
+
+```
+
+#ANALYSIS
+Here we perform imputation of data, applying SVM model, model fitting,model tuning
+```{r}
+
+see_unique = unique(fnl1[1])
+#sapply(see_unique,class)
+
+#get unique cities and assign week label from 1-21 for all the season 2012-2015
+city_state = see_unique
+repeat_year = data.frame(sort(rep(city_state$city,84)))
+colnames(repeat_year)="city"
+repeat_year$city = as.character(repeat_year$city)
+repeat_year$Season = seq(2012,2015)
+repeat_year$Season = as.numeric(repeat_year$Season)
+#sapply(repeat_year,class)
+
+#sort the data 
+repeat_year = repeat_year %>% arrange(city,Season)
+repeat_year$Week = seq(1,21)
+
+expand = repeat_year
+expand$count=NA
+
+# sapply(expand,class)
+# sapply(fnl1,class)
+# assigning appropriate data type
+expand$count = as.character(expand$count)
+expand$Season = as.numeric(expand$Season)
+expand$Week = as.numeric(expand$Week)
+# sapply(expand,class)
+# sapply(fnl1,class)
+
+new_frame = fnl1
+
+#Imputing data in the gaps with correct data
+cleaned_data = left_join(x = expand,y=new_frame,by = c("Season","city","Week"))
+
+cleaned_data = cleaned_data[-4]
+names(cleaned_data)[names(cleaned_data)=="count.y"] <- "count_review"
+
+#Addinig feature columns with respect to NFL
+cleaned_data =  left_join(x = cleaned_data,y=count_review_rating5,by = c("Season","city","Week"))
+cleaned_data =  left_join(x = cleaned_data,y=count_review_rating4,by = c("Season","city","Week"))
+cleaned_data =  left_join(x = cleaned_data,y=count_review_rating3,by = c("Season","city","Week"))
+cleaned_data =  left_join(x = cleaned_data,y=count_review_rating2,by = c("Season","city","Week"))
+cleaned_data =  left_join(x = cleaned_data,y=count_review_rating1,by = c("Season","city","Week"))
+cleaned_data =  left_join(x = cleaned_data,y=elite_count,by = c("Season","city","Week"))
+cleaned_data =  left_join(x = cleaned_data,y=non_elite_count,by = c("Season","city","Week"))
+
+#Filling all NA's to 0
+cleaned_data[is.na(cleaned_data)] = 0
+# sapply(cleaned_data,class)
+
+#Total Weeks of all years per city
+subset_fnl1 <- fnl1 %>%
+select(city) %>%
+group_by(city) %>%
+summarize(count_review=n()) %>%
+arrange(desc(city))
+
+ggplot(data = subset_fnl1,aes(x=city,y=count_review))+geom_point()+theme(axis.text.x = element_text(angle = 90, hjust = 1)) + ggtitle("Total Weeks of all years per city")
+
+#Finding cities with maximum data in all the season
+subset_fnl1 = subset_fnl1[subset_fnl1$count_review > 70,1]
+
+model_input = inner_join(cleaned_data,subset_fnl1,by="city")
+# write.csv(model_input,"model.csv")
+
+barplot(table(model_input$count_review),main = "Distribution of Review Count",xlab = "Count",ylab="Frequency")
+
+assigned_label = model_input
+
+#Assigning interval labels for review labels
+assigned_label$label <-cut(assigned_label$count_review, seq(1,100,5), right=FALSE, labels=c(1:19))
+
+assigned_label$label = as.numeric(assigned_label$label)
+
+#filling NA's with 0
+assigned_label[is.na(assigned_label)] = 0
+
+decision_assigned_label = assigned_label
+
+decision_assigned_label$city = as.factor(decision_assigned_label$city)
+decision_assigned_label$label = as.factor(decision_assigned_label$label)
+
+#creating decision trees to find probabailities for the decision of class labels
+decision_tree <- ctree(label ~ ., data = decision_assigned_label)
+plot(decision_tree)
+
+#changing to appropriate data type
+assigned_label$label = as.factor(assigned_label$label)
+
+#Removing count of review
+assigned_label = assigned_label[-4]
+
+#count of class labels
+table(assigned_label$label)
+
+#Random number generator
+set.seed(7355)
+
+#training set with seasons 2012,2013,2014 and testing set with 2015 season. Approximatley 75% to 25% data partition
+train.data <- assigned_label[grep(pattern = "2012|2013|2014",x = assigned_label$Season),]
+test.data <-  assigned_label[grep(pattern = "2015",x = assigned_label$Season),]
+
+# sapply(train.data,class)
+# sapply(test.data,class)
+
+#removing test labels for prediction on models
+attach(test.data)
+x = subset(test.data,select=-label)
+y = label
+detach(test.data)
+
+#No penalizing cost with all predictors does not correctly classify boundary class label 0 and class label 6 
+svm_model = svm(label ~ ., data=train.data,kernel="radial")
+summary(svm_model)
+pre = predict(svm_model,x)
+plot(svm_model$fitted)
+confusionMatrix(reference = y,data =pre)
+
+#All predictors in the svm model and giving penalized cost
+svm_model1 = svm(label ~ ., data=train.data,kernel="radial", cost=7)
+summary(svm_model1)
+pre = predict(svm_model1,x)
+plot(svm_model1$fitted)
+confusionMatrix(reference = y,data =pre)
+
+#Reduced predictors and got increase in accuracy
+svm_model2 = svm(label ~ city + Season + Week + elite_count + non_elite_count, data=train.data,kernel="radial", cost=7)
+summary(svm_model2)
+pre = predict(svm_model2,x)
+plot(svm_model2$fitted)
+confusionMatrix(reference = y,data =pre)
+
+RF_model = svm_model2
+result.predicted.prob <- as.data.frame(predict(RF_model, x)) # Prediction
+result.predicted.prob$`predict(RF_model, x)` = as.numeric(result.predicted.prob$`predict(RF_model, x)`)
+result.roc <- roc(y, result.predicted.prob$`predict(RF_model, x)`) 
+# Draw ROC curve.
+plot(result.roc, print.thres="best",main="SVM ROC")
+
+#creating new frame for storing model accuracy
+all_model_accuracy <- data.frame(model = as.character(),accuracy = as.numeric())
+svm_confusion_matrix  = confusionMatrix(reference = y,data =pre)
+#adding high accuracy model data in new frame
+svm_confusion_matrix_accuracy = as.data.frame(svm_confusion_matrix$overall)
+new_row = data.frame(model = "SVM",accuracy = svm_confusion_matrix_accuracy[1,1])
+all_model_accuracy = rbind(all_model_accuracy,new_row)
+
+```
+
+#We use multinominal model
+Multinominal model estimates maximum likelihood depending upon the probabilities of the response categories by nominating one class as the baseline or reference. So we can say that is a probabilistic model. The multinomial logit models have a dependent variable that is a categorical, unordered variable which suits our response variable. It works  on non-linear relationships between features and generates co-efficients with marginal effects from the reference label. 
+
+```{r}
+
+copy_assigned_label = assigned_label
+colnames(assigned_label) = c("city","Season","Week","star.5","star.4","star.3","star.2","star.1","elite","nonelite","label")
+# unique(assigned_label$label)
+# 
+# sapply(train.data,class)
+# sapply(test.data,class)
+
+# we use multinom model with all predictors
+fit = multinom(label ~ .,data = train.data)
+pre = predict(fit, x)
+mean(pre != y)
+confusionMatrix(reference = y,data =pre)
+
+#Specific predictors
+fit1 = multinom(label ~ city + Season + Week +star.5+star.4+star.3+star.2+star.1,data = train.data)
+pre = predict(fit1, x)
+mean(pre != y)
+confusionMatrix(reference = y,data =pre)
+
+# we use specific predictors gives high accuracy
+fit2 = multinom(label ~ city + Season + Week +elite_count+non_elite_count,data = train.data)
+pre = predict(fit2, x)
+mean(pre != y)
+confusionMatrix(reference = y,data =pre)
+
+RF_model = fit2
+result.predicted.prob <- as.data.frame(predict(RF_model, x)) # Prediction
+result.predicted.prob$`predict(RF_model, x)` = as.numeric(result.predicted.prob$`predict(RF_model, x)`)
+result.roc <- roc(y, result.predicted.prob$`predict(RF_model, x)`) 
+# Draw ROC curve.
+plot(result.roc, print.thres="best",main="MultiNom ROC")
+
+#Adding high accuracy multinom model value in the data frame
+multinom_confusion_matrix  = confusionMatrix(reference = y,data =pre)
+multinom_confusion_matrix_accuracy = as.data.frame(multinom_confusion_matrix$overall)
+new_row = data.frame(model = "multinom",accuracy = multinom_confusion_matrix_accuracy[1,1])
+all_model_accuracy = rbind(all_model_accuracy,new_row)
+
+#Random Forest
+#sapply(train.data,class)
+train.data$city = as.factor(train.data$city)
+#sapply(train.data,class)
+#sapply(test.data,class)
+test.data$city = as.factor(test.data$city)
+#sapply(test.data,class)
+#sapply(x,class)
+x$city = as.factor(x$city)
+```
+
+
+#Frequency count of all the labels in training and testing set
+```{r}
+table(train.data$label)
+table(test.data$label)
+```
+
+#Random Forest
+We apply random forest based on previous decision tree plot. Detailed explanantion can be found in the report. RandomForest is used since our labelled data input for the model is imputed, decision tree helps to control overfitting and identifies decisions that would generalize well enough to future input it has not seen.
+```{r}
+#RAndom Forest with all predictors
+fit = randomForest(label ~ .,data = train.data, mtry = 3, ntree = 1000)
+pre = predict(fit, x, type = 'response')
+mean(pre != y)
+confusionMatrix(reference = y,data =pre)
+
+#Random forest with elite count
+fit1 = randomForest(label ~ city + Season + Week + elite_count+non_elite_count,data = train.data, mtry = 3, ntree = 1000)
+pre = predict(fit1, x, type = 'response')
+mean(pre != y)
+#Creating confusion matrix
+RF_confusion_matrix = confusionMatrix(reference = y,data =pre)
+RF_confusion_matrix
+predicted_data = pre
+
+RF_confusion_matrix_accuracy = as.data.frame(RF_confusion_matrix$overall)
+new_row = data.frame(model = "randomForest",accuracy = RF_confusion_matrix_accuracy[1,1])
+all_model_accuracy = rbind(all_model_accuracy,new_row)
+
+```
+
+#Plotting accuracy of all models
+We have selected the best fitted models from SVM, Multinomial and RandomForest Models
+```{r}
+
+ggplot(data = all_model_accuracy,aes(x = model,y = accuracy)) + geom_bar(stat="identity",fill = "blue") +   xlab("Models") + ylab("Accuracy") + ggtitle("Model Accuracy")
+
+#Here we plot the specificity and senitivity of the three best models from supervised learning
+svm_model_class_stats = as.data.frame(svm_confusion_matrix$byClass)
+plot(svm_model_class_stats$Sensitivity, svm_model_class_stats$Specificity, main="SVM Class sensitivity and specificity", xlab="Sensitivity ", ylab="Specificity")
+
+multinom_model_class_stats = as.data.frame(multinom_confusion_matrix$byClass)
+plot(multinom_model_class_stats$Sensitivity, multinom_model_class_stats$Specificity, main="SVM Class sensitivity and specificity", xlab="Sensitivity ", ylab="Specificity")
+
+RF_model_class_stats = as.data.frame(RF_confusion_matrix$byClass)
+plot(RF_model_class_stats$Sensitivity, RF_model_class_stats$Specificity, main="Random Forest Class Sensitivity and specificity",xlab="Sensitivity ", ylab="Specificity")
+
+```
+
+#Random forest ROC
+Here we create the ROC for the best model which is RandomForest model
+```{r}
+#assign best model
+RF_model = fit1
+result.predicted.prob <- as.data.frame(predict(RF_model, x)) # Prediction
+result.predicted.prob$`predict(RF_model, x)` = as.numeric(result.predicted.prob$`predict(RF_model, x)`)
+
+
+result.roc <- roc(y, result.predicted.prob$`predict(RF_model, x)`) 
+
+#Gives excellent to good AUC
+# Draw ROC curve.
+plot(result.roc, print.thres="best",main="RandomForest ROC")
+
+result.coords <- coords(result.roc, "best", best.method="closest.topleft", ret=c("threshold", "accuracy"))
+print(result.coords)#to get threshold and accuracy
+```
+
+
+```{r}
+# fit = gbm(label ~ city + Season + Week + elite_count+non_elite_count,data = train.data, n.trees = 500)
+# pre = predict(fit, x, type= "response", n.trees = 500)
+# length(which(round(pre) != test$label))/nrow(test)
+# pred_class <- apply(pre, 1, which.max)
+
+```
+
+#Graph plot
+WE provide various visulizations in this chunk based on the processed data and cleaned data
+```{r}
+#State wise plot for business stars
+qplot(factor(stars.x), data=review_bar_NFL_join, geom="bar", fill=factor(state),xlab = "Business Stars Ratings",ylab = "Volume of Reviews",main = "Volume of reviews for business stars")
+
+#State wise plot for review stars
+qplot(factor(stars.y), data=review_bar_NFL_join, geom="bar", fill=factor(state),xlab = "Review Stars Rating",ylab = "Volume of Reviews",main = "Volume of reviews for review stars")
+
+# Review star plot for top 5 cities
+review_bar_NFL_join_top5city = merge(review_bar_NFL_join,subset_fnl1, by="city")
+qplot(factor(stars.y), data=review_bar_NFL_join_top5city, geom="bar", fill=factor(city),main = "Review stars per city",xlab = "Review Star Ratings")
+
+# Business star plot for top 5 cities
+qplot(factor(stars.x), data=review_bar_NFL_join_top5city, geom="bar", fill=factor(city),main = "Business stars per city",xlab="Business Star Ratings")
+
+#plot total reviews in top cities during NFL season
+review_bar_nfl_city_count <- review_bar_NFL_join %>%
+select(city) %>%
+group_by(city) %>%
+summarize(review_count=n()) %>%
+arrange(desc(city))
+
+#Total Volume of Reviews for cities during NFL
+plot_review_bar_nfl_city_count = merge(review_bar_nfl_city_count,subset_fnl1,by="city")
+ggplot(data = plot_review_bar_nfl_city_count,aes(x = city,y = review_count,fill=cond)) + geom_bar(stat="identity",fill = "orange") + xlab("Cities") + ylab("Volume of Reviews") + ggtitle("Total Volume of Reviews for cities during NFL")
+
+```
+
+#Conclusion
+In this chunk we compare the pas season of 2014 with presently predicted values of season 2015 to measure the change in volume of reviews. We have shown various line plot visualizations which shows the increase and decrease in volume of reviews for all the weeks of both the season. A simple measure is that we compare the past and present values for difference of one label. Detailed conclusion can also be found in the report. We plot line visualizations here for each Week of both season for the top cities which have maximum number of reviews over all the season's. From these plots we can define that for one city which week of the NFL Season receives more number of reviews.
+
+Label -1 - Decrease in Volume of Reviews
+
+
+Label 0 - Non Change in Volume of Reviews
+
+
+Label 1 - Increase in Volume of Reviews
+```{r}
+
+#fetch past season data
+past_data <- assigned_label[grep(pattern = "2014",x = assigned_label$Season),]
+current_pred_data = as.data.frame(predicted_data)
+
+#create data frame of past and present predicted values
+comp_data = cbind(past_data[c("city","Week","label")],current_pred_data)
+
+comp_data$label = as.numeric(levels(comp_data$label))[comp_data$label]
+
+#Assign label for the change
+comp_data$predicted_data = as.numeric(levels(comp_data$predicted_data))[comp_data$predicted_data]
+comp_data$change = ifelse(comp_data$predicted_data > comp_data$label,1,ifelse(comp_data$predicted_data < comp_data$label,-1,0))
+# write.csv(comp_data,"comp_data.csv")
+
+ggplot(comp_data[comp_data$city == "las vegas",],aes(x=Week,y=change))+geom_area(color="black",fill="red")+ggtitle("Las Vegas")
+ggplot(comp_data[comp_data$city == "charlotte",],aes(x=Week,y=change))+geom_area(color="black",fill="lightblue")+ggtitle("Charlotte")
+ggplot(comp_data[comp_data$city == "scottsdale",],aes(x=Week,y=change))+geom_area(color="black",fill="lightgreen")+ggtitle("Scottsdale")
+ggplot(comp_data[comp_data$city == "mesa",],aes(x=Week,y=change))+geom_area(color="black",fill="orange")+ggtitle("Mesa")
+ggplot(comp_data[comp_data$city == "tempe",],aes(x=Week,y=change))+geom_area(color="black",fill="lightgrey")+ggtitle("Tempe")
+ggplot(comp_data[comp_data$city == "phoenix",],aes(x=Week,y=change))+geom_area(color="black",fill="blue")+ggtitle("Phoenix")
+ggplot(comp_data[comp_data$city == "pittsburgh",],aes(x=Week,y=change))+geom_area(color="black",fill="yellow")+ggtitle("Pittsburgh")
+
+```
+
+#Text Mining for NFL
+We mine the text to find the NFL related terms in the review text. Below are the terms found from frequently occuring words in the review text. The Data fetched using these result is too less compared to the words food, bar, service etc. Hence, text mining cannot help to find NFL or NBA or NHL records as per the text mining process is involved.
+```{r}
+
+#joining aggregated NFL and review text data
+new_review_text2 = merge(x=largeData_text,y=review_bar_NFL_join,by = "review_id")
+# #sapply(new_review_text2,class)
+
+#Filtering data based on nfl related terms
+nfl_test = new_review_text2[grepl("football|NFL|natoinal football|touchdown|super bowl|fantasy football|nfl playoff|pro football|college|wildcard|division|confederation|champ|champion football",new_review_text2$text),]
+
+# Joining review text with all sports bar data
+# new_review_text = merge(x=largeData_text,y=review_bar,by = "review_id")
+# #sapply(new_review_text2,class)
+
+#Applied text mining over all the text from all sports bar and found non-NFL most frequent words in majority.
+# t <- data.frame(new_review_text$text.x, stringsAsFactors = FALSE)
+# corpus <- Corpus(DataframeSource(t))
+# corpus <- tm_map(corpus, stripWhitespace)
+# corpus <- tm_map(corpus, content_transformer(tolower))
+# corpus <- tm_map(corpus, removeWords, stopwords("english"))
+# corpus <- tm_map(corpus, stemDocument)
+# corpus <- tm_map(corpus, removePunctuation)
+# 
+# dtm <- TermDocumentMatrix(corpus)
+# m <- as.matrix(dtm)
+# v <- sort(rowSums(m),decreasing=TRUE)
+# d <- data.frame(word = names(v),freq=v)
+
+#Creating Text terms
+t <- data.frame(nfl_test$text, stringsAsFactors = FALSE)
+corpus <- Corpus(DataframeSource(t))
+corpus <- tm_map(corpus, stripWhitespace)
+corpus <- tm_map(corpus, content_transformer(tolower))
+corpus <- tm_map(corpus, removeWords, stopwords("english"))
+corpus <- tm_map(corpus, stemDocument)
+corpus <- tm_map(corpus, removePunctuation)
+
+new_data_matrix <- TermDocumentMatrix(corpus)
+matrix_new <- as.matrix(new_data_matrix)
+v <- sort(rowSums(matrix_new),decreasing=TRUE)
+term_data <- data.frame(word = names(v),freq=v)
+
+# check = term_data[grepl("game|footb|sports",x = term_data$word),]
+
+wordcloud(term_data$word,term_data$freq, max.words=50, random.order=FALSE, rot.per=0.35, use.r.layout=FALSE, colors=brewer.pal(8, "Dark2"))
+
+#Most frequent words
+barplot(term_data[1:10,]$freq, las = 2, names.arg = term_data[1:10,]$word,col ="lightblue", main="Most frequent words", ylab = "Word frequencies")
+
+```
+
+#References
+
+#We would like to thank Qi Wang and Professor Rumi Chunara for their valuable inputs.
+
+https://www.yelp.com/dataset_challenge
+
+http://static.pfref.com/years/2015/games.htm#games::none
+
+http://www.businessinsider.com/most-watched-sporting-events-of-2015-2016-1
+
+https://www.brightlocal.com/2015/08/20/92-of-consumers-now-read-online-reviews-for-local-businesses/
+
+https://www.tutorialspoint.com/r/r_decision_tree.htm
+
+https://www.r-bloggers.com/predicting-wine-quality-using-random-forests/
+
+http://www.fftoday.com/nfl/schedule.php
+
+http://www.espn.com/nfl/schedulegrid
+
+http://www.sportsmediawatch.com/2016/07/halftime-most-watched-sporting-events-year-so-far-nflnba/
+
+http://variety.com/2015/tv/news/nfl-record-ratings-for-opening-week-1201595991/
+
+https://www.mathworks.com/help/stats/classificationlinear.predict.html
+
+https://biz.yelp.com/support/responding_to_reviews
+
+https://www.fundera.com/blog/2015/05/28/yelp-reviews-does-anybody-really-care
+
+http://plei-plei.info/wp-content/uploads/2012/03/tv-watching-at-sports-bars-as-social-i
+nteraction.pdf
+
+http://www.hbs.edu/faculty/Publication%20Files/12-016_a7e4a5a2-03f9-490d-b093-
+8f951238dba2.pdf
+
+http://hbswk.hbs.edu/item/the-yelp-factor-are-consumer-reviews-good-for-business
+
+http://localvox.com/blog/how-to-avoid-the-yelp-review-filter-and-get-more-positive-reviews/
+
+http://stories.journalism.ku.edu/j415-sp15/2015/03/11/impact-yelp-reviews-have-on-local-businesses-ishard-to-gauge-owners-managers-say/
+
+http://www.kdnuggets.com/2015/05/3-things-about-data-science.html
+
+https://www.yelp.com/search?find_desc=Sports+Bars&find_loc=New+York,+NY
+
+http://www.mobilelifecentre.org/sites/default/files/gz_mobileHCI_final.pdf
+
+http://www.si.com/extra-mustard/2015/12/03/fifa-scandal-arrests-hotel-baur-au-lac-yelp-review
+
+https://en.wikipedia.org/wiki/Sports_in_the_United_States
+
+https://en.wikipedia.org/wiki/2015_Copa_Am%C3%A9rica
+
+http://www.skillsyouneed.com/num/percent-change.html
+
+https://rstudio-pubs-static.s3.amazonaws.com/127992_a060e7d374d549998df02fc11ac8c334.html
+
+https://www.cct.lsu.edu/~pkondi1/bare_jrnl
+
+http://www.cs.ucsb.edu/~korpeoglu/cs290d/yelpbusy.pdf
+
+http://www.galvanize.com/blog/bayesian-statistics-analyzing-yelp
+
+http://www.topendsports.com/events/calendar-2016.htm
+
+http://www.topendsports.com/events/
+
+https://en.wikipedia.org/wiki/List_of_multi-sport_events
+
+http://www.espn.com/nfl/schedule
+
+http://www.sbnation.com/nfl/2016/4/14/11435628/2016-nfl-schedule-released-dates-times-r
+egular-season
+
+https://www.kaggle.com/maxhorowitz/nflplaybyplay2015
+
+http://www.sthda.com/english/wiki/text-mining-and-word-cloud-fundamentals-in-r-5-simple-steps-you-should-know#explore-frequent-terms-and-their-associations
+
+https://www.quora.com/How-does-randomization-in-a-random-forest-work
+
+http://www.statmethods.net/advgraphs/ggplot2.html
+
+http://docs.ggplot2.org/dev/vignettes/qplot.html
+
+https://sites.google.com/site/econometricsacademy/econometrics-models/multinomial-probit-and-logit-models
